@@ -1,0 +1,135 @@
+/* ===================== Stat grid ===================== */
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.admin-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-stat-icon { color: var(--green-primary); }
+.admin-stat-card.warn .admin-stat-icon { color: var(--alert-red); }
+.admin-stat-value { font-size: 1.6rem; font-weight: 700; color: var(--green-dark); }
+.admin-stat-label { font-size: 0.8rem; color: var(--text-muted); }
+
+/* ===================== Two-column layout ===================== */
+.admin-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .admin-two-col { grid-template-columns: 1fr; }
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--green-dark);
+}
+
+.admin-alert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cream-border);
+  font-size: 0.88rem;
+}
+.admin-alert-row:last-child { border-bottom: none; }
+
+.badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.badge-red { background: #fde2e2; color: #a12525; }
+.badge-yellow { background: #fdf1cf; color: #8a6100; }
+
+/* ===================== Data tables ===================== */
+.admin-table-wrap { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.admin-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 2px solid var(--cream-border);
+  white-space: nowrap;
+}
+.admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cream-border);
+  vertical-align: middle;
+}
+.admin-table tr:hover td { background: var(--green-pale); }
+
+/* ===================== Toolbar above tables ===================== */
+.admin-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.admin-toolbar .search-input-wrap { flex: 1; min-width: 200px; }
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===================== Modal (add medicine / add batch) ===================== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-box {
+  background: white;
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.modal-header h3 { margin: 0; color: var(--green-dark); }
+.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+
+.rx-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 0.68rem; font-weight: 700;
+  color: var(--alert-red);
+  background: #fde2e2;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.stock-pill { font-size: 0.78rem; font-weight: 600; }
+.stock-pill.low { color: var(--alert-red); }
+.stock-pill.ok { color: var(--green-primary); }
+
+.logo-preview-wrap {
+  width: 56px; height: 56px;
+  border-radius: 10px;
+  background: var(--green-pale);
+  border: 1px solid var(--cream-border);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--green-primary);
+}
+.logo-preview-wrap img { width: 100%; height: 100%; object-fit: cover; }

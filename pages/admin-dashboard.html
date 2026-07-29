@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard — Pharmacy System</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy Admin</div>
+            </div>
+            <nav>
+                <a href="admin-dashboard.html" class="active" id="nav-dashboard">Dashboard</a>
+                <a href="admin-inventory.html" id="nav-inventory">Inventory</a>
+                <a href="admin-reports.html" id="nav-reports">Reports</a>
+                <a href="admin-suppliers.html" id="nav-suppliers">Suppliers</a>
+                <a href="admin-staff.html" id="nav-staff">Staff</a>
+                <a href="admin-audit.html" id="nav-audit">Audit Log</a>
+                <a href="admin-settings.html" id="nav-settings">Settings</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+            <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-status-text">Checking
+                    sync…</span></div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Dashboard</h1>
+                <div class="muted" id="admin-name"></div>
+            </div>
+
+            <div class="admin-stat-grid" id="stat-grid">
+                <!-- populated by JS -->
+            </div>
+
+            <div class="admin-two-col">
+                <div class="card">
+                    <h3 class="card-title" id="low-stock-title"></h3>
+                    <div id="low-stock-list">
+                        <p class="muted">Loading…</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title" id="near-expiry-title"></h3>
+                    <div id="near-expiry-list">
+                        <p class="muted">Loading…</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script>
+        document.getElementById('brand-icon-fallback').innerHTML = SVG_ICONS.pill;
+        document.getElementById('nav-dashboard').innerHTML = `${SVG_ICONS.dashboard} Dashboard`;
+        document.getElementById('nav-inventory').innerHTML = `${SVG_ICONS.box} Inventory`;
+        document.getElementById('nav-reports').innerHTML = `${SVG_ICONS.fileText} Reports`;
+        document.getElementById('nav-suppliers').innerHTML = `${SVG_ICONS.truck} Suppliers`;
+        document.getElementById('nav-staff').innerHTML = `${SVG_ICONS.users} Staff`;
+        document.getElementById('nav-audit').innerHTML = `${SVG_ICONS.history} Audit Log`;
+        document.getElementById('nav-settings').innerHTML = `${SVG_ICONS.settings} Settings`;
+        document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`;
+        document.getElementById('low-stock-title').innerHTML = `${SVG_ICONS.alertTriangle} Low Stock`;
+        document.getElementById('near-expiry-title').innerHTML = `${SVG_ICONS.clock} Near Expiry`;
+
+        document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        function renderStatGrid({ lowStockCount, nearExpiryCount, staffCount, supplierCount }) {
+            const grid = document.getElementById('stat-grid');
+            const stats = [
+                { label: 'Low Stock Items', value: lowStockCount, icon: SVG_ICONS.alertTriangle, tone: lowStockCount > 0 ? 'warn' : '' },
+                { label: 'Near Expiry Batches', value: nearExpiryCount, icon: SVG_ICONS.clock, tone: nearExpiryCount > 0 ? 'warn' : '' },
+                { label: 'Active Staff', value: staffCount, icon: SVG_ICONS.users, tone: '' },
+                { label: 'Suppliers', value: supplierCount, icon: SVG_ICONS.truck, tone: '' },
+            ];
+            grid.innerHTML = '';
+            for (const s of stats) {
+                const card = document.createElement('div');
+                card.className = 'card admin-stat-card' + (s.tone ? ' ' + s.tone : '');
+                const iconEl = document.createElement('div');
+                iconEl.className = 'admin-stat-icon';
+                iconEl.innerHTML = s.icon;
+                const valueEl = document.createElement('div');
+                valueEl.className = 'admin-stat-value';
+                valueEl.textContent = s.value;
+                const labelEl = document.createElement('div');
+                labelEl.className = 'admin-stat-label';
+                labelEl.textContent = s.label;
+                card.append(iconEl, valueEl, labelEl);
+                grid.appendChild(card);
+            }
+        }
+
+        function renderAlertRow(container, items, renderFn, emptyText) {
+            container.innerHTML = '';
+            if (items.length === 0) {
+                const p = document.createElement('p');
+                p.className = 'muted';
+                p.textContent = emptyText;
+                container.appendChild(p);
+                return;
+            }
+            for (const item of items) container.appendChild(renderFn(item));
+        }
+
+        function lowStockRow(item) {
+            const row = document.createElement('div');
+            row.className = 'admin-alert-row';
+            const name = document.createElement('span');
+            name.textContent = item.brand_name; // textContent — safe against XSS regardless of source
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-red';
+            badge.textContent = `${item.total_stock} left`;
+            row.append(name, badge);
+            return row;
+        }
+
+        function nearExpiryRow(item) {
+            const row = document.createElement('div');
+            row.className = 'admin-alert-row';
+            const name = document.createElement('span');
+            name.textContent = `${item.brand_name}${item.batch_number ? ' (' + item.batch_number + ')' : ''}`;
+            const badge = document.createElement('span');
+            badge.className = 'badge ' + (item.severity === 'red' ? 'badge-red' : 'badge-yellow');
+            badge.textContent = new Date(item.expiry_date).toLocaleDateString();
+            row.append(name, badge);
+            return row;
+        }
+
+        (async function init() {
+            const session = await requireSession();
+            if (!session) return;
+            if (session.role !== 'admin') { window.location.href = 'pos.html'; return; }
+            document.getElementById('admin-name').textContent = session.name;
+
+            try {
+                const [alerts, staff, suppliers] = await Promise.all([
+                    apiRequest('/admin/inventory/alerts'),
+                    apiRequest('/admin/staff'),
+                    apiRequest('/admin/suppliers'),
+                ]);
+                renderStatGrid({
+                    lowStockCount: alerts.low_stock.length,
+                    nearExpiryCount: alerts.near_expiry.length,
+                    staffCount: staff.filter(s => s.active).length,
+                    supplierCount: suppliers.length,
+                });
+                renderAlertRow(document.getElementById('low-stock-list'), alerts.low_stock, lowStockRow, 'No low stock items.');
+                renderAlertRow(document.getElementById('near-expiry-list'), alerts.near_expiry, nearExpiryRow, 'No batches expiring soon.');
+            } catch (err) {
+                showToast(err.message || 'Could not load dashboard data', 'error');
+            }
+
+            const branding = await loadPharmacyBranding();
+            applyBrandingToSidebar(branding);
+        })();
+    </script>
+</body>
+
+</html>

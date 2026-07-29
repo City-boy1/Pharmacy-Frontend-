@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventory — Pharmacy Admin</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy Admin</div>
+            </div>
+            <nav>
+                <a href="admin-dashboard.html" id="nav-dashboard">Dashboard</a>
+                <a href="admin-inventory.html" class="active" id="nav-inventory">Inventory</a>
+                <a href="admin-reports.html" id="nav-reports">Reports</a>
+                <a href="admin-suppliers.html" id="nav-suppliers">Suppliers</a>
+                <a href="admin-staff.html" id="nav-staff">Staff</a>
+                <a href="admin-audit.html" id="nav-audit">Audit Log</a>
+                <a href="admin-settings.html" id="nav-settings">Settings</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+            <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-status-text">Checking
+                    sync…</span></div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Inventory</h1>
+                <div class="muted" id="admin-name"></div>
+            </div>
+
+            <div class="admin-toolbar">
+                <div class="search-input-wrap"></div>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; white-space:nowrap;">
+                    <input type="checkbox" id="show-archived-toggle" style="width:auto;" />
+                    Show archived
+                </label>
+                <button class="btn-secondary btn-icon" id="import-btn"></button>
+                <button class="btn-secondary btn-icon" id="export-btn"></button>
+                <button class="btn-icon" id="add-medicine-btn"></button>
+            </div>
+
+            <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;" />
+
+            <div class="card">
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Generic</th>
+                                <th>Category</th>
+                                <th>Barcode</th>
+                                <th>Stock</th>
+                                <th>Reorder Level</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="medicines-tbody">
+                            <tr>
+                                <td colspan="7" class="muted">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Medicine Modal -->
+    <div class="modal-overlay" id="medicine-modal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Add Medicine</h3>
+                <button class="modal-close" id="medicine-modal-close"></button>
+            </div>
+            <div class="field">
+                <label for="med-brand">Brand Name *</label>
+                <input id="med-brand" placeholder="e.g. Panadol" />
+            </div>
+            <div class="field">
+                <label for="med-generic">Generic Name</label>
+                <input id="med-generic" placeholder="e.g. Paracetamol" />
+            </div>
+            <div class="field">
+                <label for="med-barcode">Barcode</label>
+                <div style="display:flex; gap:8px;">
+                    <input id="med-barcode" placeholder="Scan or type barcode" style="flex:1;" />
+                    <button type="button" class="btn-secondary btn-icon" id="med-barcode-scan-btn"></button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="med-reorder">Minimum Reorder Level</label>
+                <input id="med-reorder" type="number" min="0" placeholder="0" />
+            </div>
+            <div class="field" style="display:flex; align-items:center; gap:8px; flex-direction:row;">
+                <input id="med-rx" type="checkbox" style="width:auto;" />
+                <label for="med-rx" style="margin:0;">Prescription (Rx) only</label>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-secondary" id="medicine-cancel-btn" style="flex:1;">Cancel</button>
+                <button id="medicine-save-btn" style="flex:1;">Save Medicine</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Batch Modal -->
+    <div class="modal-overlay" id="batch-modal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="batch-modal-title">Add Batch</h3>
+                <button class="modal-close" id="batch-modal-close"></button>
+            </div>
+            <p class="muted" id="batch-medicine-label" style="margin-top:-8px;"></p>
+            <div class="field">
+                <label for="batch-number">Batch Number</label>
+                <input id="batch-number" placeholder="e.g. B20260714" />
+            </div>
+            <div class="field">
+                <label for="batch-expiry">Expiry Date *</label>
+                <input id="batch-expiry" type="date" />
+            </div>
+            <div class="field">
+                <label for="batch-qty">Quantity Received *</label>
+                <input id="batch-qty" type="number" min="0" placeholder="0" />
+            </div>
+            <div class="field">
+                <label for="batch-cost">Cost Price (per unit)</label>
+                <input id="batch-cost" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="field">
+                <label for="batch-unit-price">Selling Price (per unit) *</label>
+                <input id="batch-unit-price" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-secondary" id="batch-cancel-btn" style="flex:1;">Cancel</button>
+                <button id="batch-save-btn" style="flex:1;">Save Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View/Edit Batches Modal -->
+    <div class="modal-overlay" id="batch-list-modal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Batches — <span id="batch-list-medicine-label"></span></h3>
+                <button class="modal-close" id="batch-list-modal-close"></button>
+            </div>
+            <div id="batch-list-body"></div>
+        </div>
+    </div>
+
+    <!-- Import Result Modal -->
+    <div class="modal-overlay" id="import-modal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Import Results</h3>
+                <button class="modal-close" id="import-modal-close"></button>
+            </div>
+            <div id="import-result-body"></div>
+            <button id="import-modal-ok-btn" style="width:100%; margin-top:16px;">Done</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/pos/barcode.js"></script>
+    <script src="../js/admin/inventory.js"></script>
+</body>
+
+</html>

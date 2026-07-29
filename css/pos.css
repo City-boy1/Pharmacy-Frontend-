@@ -1,0 +1,165 @@
+/* ===================== Sidebar branding ===================== */
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 12px;
+}
+.brand-logo-wrap {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.brand-logo-wrap img { width: 100%; height: 100%; object-fit: cover; display: none; }
+#brand-name { font-weight: 700; font-size: 1rem; line-height: 1.2; }
+
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar nav a svg { flex-shrink: 0; opacity: 0.9; }
+
+/* ===================== Sync status pill ===================== */
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green-light);
+  flex-shrink: 0;
+}
+.sync-dot.pending { background: var(--alert-yellow); }
+.sync-dot.offline { background: var(--alert-red); }
+
+/* ===================== Info / help boxes ===================== */
+.info-box {
+  display: flex;
+  gap: 10px;
+  background: var(--green-pale);
+  border: 1px solid var(--green-light);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  color: var(--green-dark);
+  margin-bottom: 16px;
+}
+.info-box svg { flex-shrink: 0; margin-top: 2px; }
+.info-box strong { display: block; margin-bottom: 2px; }
+
+/* ===================== Search box with icon ===================== */
+.search-input-wrap { position: relative; }
+.search-input-wrap svg {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.search-input-wrap input { padding-left: 38px; }
+.search-hint {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.76rem; color: var(--text-muted); margin-top: 6px;
+}
+
+/* ===================== Letter quick-browse bar ===================== */
+.letter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 4px;
+}
+.letter-btn {
+  width: 28px; height: 28px;
+  padding: 0;
+  font-size: 0.78rem;
+  background: white;
+  color: var(--green-dark);
+  border: 1px solid var(--cream-border);
+  border-radius: 6px;
+}
+.letter-btn:hover { background: var(--green-pale); }
+
+/* ===================== Search result cards ===================== */
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--cream-border);
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.search-result-item:hover { background: var(--green-pale); border-color: var(--green-light); }
+.search-result-item.out-of-stock { cursor: not-allowed; opacity: 0.55; }
+.sr-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: var(--green-pale);
+  color: var(--green-primary);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sr-info { flex: 1; min-width: 0; }
+.sr-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.sr-name .badge { display: inline-flex; align-items: center; gap: 3px; }
+.sr-generic { font-size: 0.8rem; color: var(--text-muted); }
+.sr-meta { text-align: right; flex-shrink: 0; }
+.sr-price { font-weight: 700; color: var(--green-dark); }
+.sr-stock { font-size: 0.76rem; }
+.sr-stock.stock-ok { color: var(--green-primary); }
+.sr-stock.stock-out { color: var(--alert-red); }
+
+/* ===================== Payment method tabs (replaces plain <select>) ===================== */
+.payment-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.payment-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  background: white;
+  border: 1.5px solid var(--cream-border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.payment-tab.active {
+  border-color: var(--green-primary);
+  background: var(--green-pale);
+  color: var(--green-dark);
+  font-weight: 600;
+}
+.payment-tab:hover { background: var(--green-pale); }
+
+/* ===================== Cart panel ===================== */
+.cart-item .item-icon { color: var(--green-primary); }
+
+/* ===================== Shift sales table ===================== */
+.shift-sales-table th, .shift-sales-table td { font-size: 0.82rem; }
+.oversell-tag {
+  color: var(--alert-red);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* ===================== Toast with icon ===================== */
+.toast { display: flex; align-items: center; gap: 8px; }
+
+/* ===================== Responsive: stack on narrow screens ===================== */
+@media (max-width: 900px) {
+  .pos-layout { grid-template-columns: 1fr; }
+  .app-shell { flex-direction: column; }
+  .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 10px 16px; }
+  .sidebar nav { display: flex; gap: 4px; }
+  .sidebar .sync-status { margin-top: 0; margin-left: auto; padding: 0; }
+  .brand-row { border-bottom: none; padding: 0; margin: 0; }
+}

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>POS — Pharmacy System</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy POS</div>
+            </div>
+            <nav>
+                <a href="pos.html" class="active" id="nav-icon-checkout">Checkout</a>
+                <a href="#" id="held-orders-link">Held Orders</a>
+                <a href="shift.html" id="nav-icon-shift">Shift</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+            <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-status-text">Checking
+                    sync…</span></div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Checkout</h1>
+                <div class="muted" id="cashier-name"></div>
+            </div>
+
+            <div class="pos-layout">
+                <div class="card">
+                    <div class="field">
+                        <label for="search-box">Search, or scan a barcode</label>
+                        <div class="search-input-wrap"></div>
+                    </div>
+                    <div class="search-hint" id="barcode-hint"></div>
+
+                    <div id="search-results" class="search-results"></div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-top:0; color: var(--green-dark);">Cart</h3>
+                    <div id="cart-items"></div>
+                    <div class="cart-total" id="cart-total">₵ 0.00</div>
+
+                    <div class="field" style="margin-top:16px;">
+                        <label>Payment Method</label>
+                        <div class="payment-tabs" id="payment-tabs"></div>
+                    </div>
+
+                    <div class="field" id="tendered-field">
+                        <label for="amount-tendered">Amount Tendered</label>
+                        <input id="amount-tendered" type="number" min="0" step="0.01" placeholder="0.00" />
+                        <p class="muted" id="change-line" style="margin:4px 0 0;"></p>
+                    </div>
+
+                    <div class="field" id="momo-field" style="display:none;">
+                        <label for="momo-provider">Mobile Money Provider</label>
+                        <select id="momo-provider">
+                            <option value="MTN MoMo">MTN MoMo</option>
+                            <option value="Vodafone Cash">Vodafone Cash</option>
+                            <option value="AirtelTigo Money">AirtelTigo Money</option>
+                        </select>
+                        <label for="momo-ref" style="margin-top:8px;">Transaction Reference</label>
+                        <input id="momo-ref" placeholder="e.g. from customer's confirmation SMS" />
+                    </div>
+
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button class="btn-secondary" id="hold-btn"></button>
+                        <button id="checkout-btn" style="flex:1;">Complete Sale</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Held orders inline panel -->
+            <div class="card" id="held-panel" style="display:none; margin-top:16px;">
+                <h3 style="margin-top:0;">Held Orders</h3>
+                <div id="held-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/sync.js"></script>
+    <script src="../js/pos/fefo-local.js"></script>
+    <script src="../js/pos/search.js"></script>
+    <script src="../js/pos/cart.js"></script>
+    <script src="../js/pos/checkout.js"></script>
+    <script src="../js/pos/barcode.js"></script>
+    <script>
+        let session = null;
+        let paymentMethod = 'cash';
+
+        // ---------- Build icon-bearing elements that can't be plain HTML strings above ----------
+        document.getElementById('brand-icon-fallback').innerHTML = SVG_ICONS.pill;
+        document.getElementById('nav-icon-checkout').innerHTML = `${SVG_ICONS.cart} Checkout`;
+        document.getElementById('nav-icon-shift').innerHTML = `${SVG_ICONS.clock} Shift`;
+        document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`;
+        document.getElementById('held-orders-link').innerHTML = `${SVG_ICONS.hold} Held Orders`;
+        document.getElementById('hold-btn').innerHTML = `${SVG_ICONS.hold} Hold`;
+        document.getElementById('barcode-hint').innerHTML = `${SVG_ICONS.barcode} <span>Scanning is automatic — just point the scanner at the search box</span>`;
+
+        const searchWrap = document.querySelector('.search-input-wrap');
+        searchWrap.innerHTML = `${SVG_ICONS.search}<input id="search-box" placeholder="Type a product name, or click a letter below…" autofocus />`;
+        const searchBox = document.getElementById('search-box');
+
+        // ---------- Payment method tabs ----------
+        const PAYMENT_METHODS = [
+            { key: 'cash', label: 'Cash', icon: SVG_ICONS.cash },
+            { key: 'card', label: 'Card', icon: SVG_ICONS.card },
+            { key: 'mobile_money', label: 'Mobile Money', icon: SVG_ICONS.mobile },
+        ];
+        function renderPaymentTabs() {
+            const wrap = document.getElementById('payment-tabs');
+            wrap.innerHTML = '';
+            for (const m of PAYMENT_METHODS) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'payment-tab' + (paymentMethod === m.key ? ' active' : '');
+                btn.innerHTML = `${m.icon}<span>${m.label}</span>`;
+                btn.addEventListener('click', () => { paymentMethod = m.key; onPaymentMethodChange(); });
+                wrap.appendChild(btn);
+            }
+        }
+        function onPaymentMethodChange() {
+            renderPaymentTabs();
+            document.getElementById('tendered-field').style.display = paymentMethod === 'cash' ? 'block' : 'none';
+            document.getElementById('momo-field').style.display = paymentMethod === 'mobile_money' ? 'block' : 'none';
+        }
+
+        // ---------- Sync indicator ----------
+        async function refreshSyncIndicator() {
+            const status = await currentSyncStatus();
+            const dot = document.querySelector('#sync-status .sync-dot');
+            const text = document.getElementById('sync-status-text');
+            dot.className = 'sync-dot';
+            if (status.pendingCount > 0) {
+                dot.classList.add('pending');
+                text.textContent = `${status.pendingCount} sale(s) pending sync`;
+            } else if (!status.online) {
+                dot.classList.add('offline');
+                text.textContent = 'Offline — saving locally';
+            } else {
+                text.textContent = 'All synced';
+            }
+        }
+
+        // ---------- Search ----------
+        wireLiveSearch(searchBox, (results, query) => {
+            renderSearchResults(results, (item) => addToCart(item), query);
+        });
+        attachBarcodeScanner(searchBox, async (code) => {
+            const match = await posSearchByBarcode(code);
+            if (match) {
+                addToCart(match);
+                showToast(`Scanned: ${match.brand_name}`);
+                searchBox.value = '';
+                document.getElementById('search-results').innerHTML = '';
+            } else {
+                showToast(`No product found for barcode ${code}`, 'error');
+            }
+        });
+
+        // ---------- Cart / totals ----------
+        document.getElementById('amount-tendered').addEventListener('input', () => {
+            const tendered = Number(document.getElementById('amount-tendered').value || 0);
+            const change = tendered - cartTotal();
+            document.getElementById('change-line').textContent = tendered > 0 ? `Change: ₵ ${formatCurrency(change)}` : '';
+        });
+
+        document.getElementById('hold-btn').addEventListener('click', holdCurrentOrder);
+
+        document.getElementById('checkout-btn').addEventListener('click', async () => {
+            const amount_tendered = paymentMethod === 'cash'
+                ? Number(document.getElementById('amount-tendered').value || 0)
+                : null;
+            const mobile_money_provider = paymentMethod === 'mobile_money' ? document.getElementById('momo-provider').value : null;
+            const mobile_money_ref = paymentMethod === 'mobile_money' ? document.getElementById('momo-ref').value : null;
+
+            if (paymentMethod === 'cash' && amount_tendered < cartTotal()) {
+                showToast('Amount tendered is less than the total', 'error');
+                return;
+            }
+            if (paymentMethod === 'mobile_money' && !mobile_money_ref) {
+                showToast('Enter the mobile money transaction reference', 'error');
+                return;
+            }
+
+            try {
+                const shift_id = await getMeta('active_shift_id', null);
+                const sale = await completeCheckout({
+                    payment_method: paymentMethod, amount_tendered, mobile_money_provider, mobile_money_ref, shift_id,
+                });
+                showToast(`Sale complete — ₵ ${formatCurrency(sale.total_amount)}`);
+                document.getElementById('amount-tendered').value = '';
+                document.getElementById('momo-ref').value = '';
+                document.getElementById('change-line').textContent = '';
+                searchBox.value = '';
+                document.getElementById('search-results').innerHTML = '';
+                await refreshSyncIndicator();
+            } catch (err) {
+                showToast(err.message || 'Checkout failed', 'error');
+            }
+        });
+
+        // ---------- Held orders ----------
+        document.getElementById('held-orders-link').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const panel = document.getElementById('held-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            if (panel.style.display === 'block') {
+                const held = await listHeldOrders();
+                const list = document.getElementById('held-list');
+                list.innerHTML = held.length === 0 ? '<p class="muted">No held orders.</p>' : '';
+                for (const order of held) {
+                    const row = document.createElement('div');
+                    row.className = 'cart-item';
+                    const total = order.cart.reduce((s, c) => s + c.quantity * Number(c.unit_price), 0);
+                    row.innerHTML = `<div>${order.cart.length} item(s) — ₵ ${formatCurrency(total)}<div class="muted" style="font-size:0.78rem;">${new Date(order.held_at).toLocaleTimeString()}</div></div>`;
+                    const btn = document.createElement('button');
+                    btn.textContent = 'Recall';
+                    btn.addEventListener('click', async () => { await recallHeldOrder(order.id); panel.style.display = 'none'; });
+                    row.appendChild(btn);
+                    list.appendChild(row);
+                }
+            }
+        });
+
+        document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        // ---------- Init ----------
+        (async function init() {
+            session = await requireSession();
+            if (!session) return;
+            document.getElementById('cashier-name').textContent = session.name;
+            renderCart();
+            renderPaymentTabs();
+            onPaymentMethodChange();
+            startSyncLoop();
+            onSyncStatusChange(refreshSyncIndicator);
+            refreshSyncIndicator();
+            setInterval(refreshSyncIndicator, 5000);
+            const branding = await loadPharmacyBranding();
+            applyBrandingToSidebar(branding);
+        })();
+    </script>
+</body>
+
+</html>

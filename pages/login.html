@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login — Pharmacy System</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+</head>
+
+<body>
+    <div class="login-wrap">
+        <div class="card login-card">
+            <h2 style="color: var(--green-dark); margin-top:0;">Pharmacy Login</h2>
+
+            <div class="field" id="pharmacy-field">
+                <label for="pharmacy-id">Pharmacy ID</label>
+                <input id="pharmacy-id" placeholder="Paste pharmacy ID (first login only)" />
+            </div>
+
+            <div class="field">
+                <label for="user-select">Staff Member</label>
+                <select id="user-select">
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+
+            <div class="field" id="manual-userid-field" style="display:none;">
+                <label for="manual-user-id">Your Staff ID (first login on this device only)</label>
+                <input id="manual-user-id" placeholder="Paste the User ID you were given" />
+            </div>
+
+            <p class="muted" id="pin-label">Enter PIN</p>
+            <div class="pin-dots" id="pin-dots"></div>
+
+            <div class="pin-pad" id="pin-pad">
+                <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+                <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+                <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+                <button data-key="clear" class="btn-secondary">Clear</button>
+                <button data-key="0">0</button>
+                <button data-key="back" class="btn-secondary">⌫</button>
+            </div>
+
+            <p class="muted" style="margin-top:16px; font-size:0.78rem;" id="status-line">Checking connection…</p>
+        </div>
+    </div>
+
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/sync.js"></script>
+    <script>
+        const PIN_LENGTH = 4;
+        let pin = '';
+
+        function renderDots() {
+            const wrap = document.getElementById('pin-dots');
+            wrap.innerHTML = '';
+            for (let i = 0; i < PIN_LENGTH; i++) {
+                const d = document.createElement('div');
+                d.className = 'pin-dot' + (i < pin.length ? ' filled' : '');
+                wrap.appendChild(d);
+            }
+        }
+
+        async function loadCachedUsers() {
+            const users = await db.users.toArray();
+            const select = document.getElementById('user-select');
+            select.innerHTML = '<option value="">-- Select --</option>';
+            for (const u of users) {
+                const opt = document.createElement('option');
+                opt.value = u.user_id;
+                opt.textContent = `${u.name} (${u.role})`;
+                select.appendChild(opt);
+            }
+            if (users.length > 0) {
+                document.getElementById('pharmacy-field').style.display = 'none';
+                document.getElementById('manual-userid-field').style.display = 'none';
+                select.style.display = 'block';
+            } else {
+                // Nothing cached yet — this is the very first login on this device.
+                // The dropdown can't have options yet, so fall back to a manual field.
+                select.style.display = 'none';
+                document.getElementById('manual-userid-field').style.display = 'block';
+            }
+        }
+
+        async function attemptLogin() {
+            const select = document.getElementById('user-select');
+            const userId = select.style.display !== 'none'
+                ? select.value
+                : document.getElementById('manual-user-id').value.trim();
+            if (!userId) { showToast('Select a staff member first', 'error'); pin = ''; renderDots(); return; }
+
+            const online = await isServerReachable();
+            document.getElementById('status-line').textContent = online ? 'Online — verifying with server' : 'Offline — verifying locally';
+
+            try {
+                if (online) {
+                    const pharmacyId = document.getElementById('pharmacy-id').value.trim() ||
+                        (await getMeta('pharmacy_id', null));
+                    const result = await apiRequest('/auth/login', {
+                        method: 'POST',
+                        body: { pharmacy_id: pharmacyId, user_id: userId, pin },
+                    });
+                    await setSession({ token: result.token, ...result.user });
+                    await setMeta('pharmacy_id', result.user.pharmacy_id);
+                    await setMeta('last_known_token', result.token);
+                    try { await pullCatalog(); } catch (e) { console.warn('Initial catalog pull failed:', e.message); }
+                    showToast(`Welcome, ${result.user.name}`);
+                    redirectByRole(result.user.role);
+                } else {
+                    // Offline fallback: validate PIN against the locally cached hash.
+                    const cachedUser = await db.users.get(userId);
+                    if (!cachedUser) { showToast('No cached credentials for this user — connect online once first', 'error'); pin = ''; renderDots(); return; }
+                    const bcryptLib = (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt) ? dcodeIO.bcrypt : window.bcrypt;
+                    const match = bcryptLib.compareSync(pin, cachedUser.pin_hash);
+                    if (!match) { showToast('Incorrect PIN', 'error'); pin = ''; renderDots(); return; }
+
+                    const pharmacyId = await getMeta('pharmacy_id', null);
+                    // No token available offline; mark session as offline-authenticated.
+                    // It will be re-issued a real JWT next time sync succeeds online.
+                    await setSession({
+                        token: (await getMeta('last_known_token', null)),
+                        user_id: cachedUser.user_id,
+                        name: cachedUser.name,
+                        role: cachedUser.role,
+                        pharmacy_id: pharmacyId,
+                        offline_login: true,
+                    });
+                    showToast(`Welcome back, ${cachedUser.name} (offline)`);
+                    redirectByRole(cachedUser.role);
+                }
+            } catch (err) {
+                showToast(err.message || 'Login failed', 'error');
+                pin = '';
+                renderDots();
+            }
+        }
+
+        function redirectByRole(role) {
+            window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'pos.html';
+        }
+
+        document.getElementById('pin-pad').addEventListener('click', (e) => {
+            const key = e.target.dataset.key;
+            if (!key) return;
+            if (key === 'clear') { pin = ''; }
+            else if (key === 'back') { pin = pin.slice(0, -1); }
+            else if (pin.length < PIN_LENGTH) { pin += key; }
+            renderDots();
+            if (pin.length === PIN_LENGTH) attemptLogin();
+        });
+
+        // Also accept a real keyboard — number keys 0-9, Backspace to delete,
+        // Escape to clear. Same logic as the on-screen pad, just a different input source.
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                if (pin.length < PIN_LENGTH) pin += e.key;
+            } else if (e.key === 'Backspace') {
+                pin = pin.slice(0, -1);
+            } else if (e.key === 'Escape') {
+                pin = '';
+            } else {
+                return; // ignore any other key, don't re-render for nothing
+            }
+            renderDots();
+            if (pin.length === PIN_LENGTH) attemptLogin();
+        });
+
+        async function refreshStaffListSilently() {
+            const online = await isServerReachable();
+            if (!online) return;
+            const token = await getMeta('last_known_token', null);
+            if (!token) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/pos/catalog/sync`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) return; // token expired or invalid — silently give up, no harm done
+                const data = await res.json();
+                if (data.users) await replaceCatalog({ users: data.users });
+            } catch (e) {
+                // offline mid-check, or network hiccup — not worth bothering the user about
+            }
+        }
+
+        (async function init() {
+            await refreshStaffListSilently();
+            await loadCachedUsers();
+            const online = await isServerReachable();
+            document.getElementById('status-line').textContent = online
+                ? 'Online — you can log in with server or cached credentials'
+                : 'Offline — using cached credentials on this device';
+            renderDots();
+
+            // Existing session? Skip straight to the right screen.
+            const session = await getSession();
+            if (session) redirectByRole(session.role);
+        })();
+    </script>
+</body>
+
+</html>

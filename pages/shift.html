@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shift — Pharmacy System</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy POS</div>
+            </div>
+            <nav>
+                <a href="pos.html" id="nav-icon-checkout">Checkout</a>
+                <a href="shift.html" class="active" id="nav-icon-shift">Shift</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Shift</h1>
+            </div>
+
+            <div class="info-box" id="explainer">
+                <span></span>
+                <div>
+                    <strong>What is a shift?</strong>
+                    A shift tracks the cash and payments a cashier is responsible for, from the moment they start
+                    (with a starting cash float) to the moment they close and count what's actually in the drawer.
+                    Every sale is tagged to the shift so the system knows what total it expects — closing compares
+                    that to what was physically counted, and flags any difference (variance) for the admin to review.
+                </div>
+            </div>
+
+            <div id="open-panel" class="card" style="max-width:420px;">
+                <h3 style="margin-top:0;">Start Shift</h3>
+                <div class="field">
+                    <label for="opening-cash">Opening Cash (float)</label>
+                    <input id="opening-cash" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <button id="start-shift-btn">Start Shift</button>
+            </div>
+
+            <div id="close-panel" style="display:none;">
+                <div class="card" style="max-width:640px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Your Sales This Shift</h3>
+                        <span class="muted" id="shift-opened-line" style="font-size:0.8rem;"></span>
+                    </div>
+                    <p class="muted" style="font-size:0.85rem;">Review every sale below before you close — this is your
+                        last chance to catch a mistake.</p>
+                    <table class="shift-sales-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Items</th>
+                                <th>Method</th>
+                                <th>Tendered</th>
+                                <th>Change</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shift-sales-body"></tbody>
+                    </table>
+                    <div id="shift-sales-empty" class="muted" style="padding:12px 0; display:none;">No sales recorded
+                        yet this shift.</div>
+                </div>
+
+                <div class="card" style="max-width:640px;">
+                    <h3 style="margin-top:0;">Close Shift &amp; Reconcile</h3>
+                    <p class="muted" style="font-size:0.85rem;">Count the drawer and enter what you actually have for
+                        each method. Mobile money and card don't need physical counting — just confirm the totals you
+                        collected.</p>
+                    <div class="grid grid-3">
+                        <div class="field">
+                            <label for="counted-cash">Counted Cash</label>
+                            <input id="counted-cash" type="number" min="0" step="0.01" placeholder="0.00" />
+                        </div>
+                        <div class="field">
+                            <label for="counted-card">Counted Card</label>
+                            <input id="counted-card" type="number" min="0" step="0.01" placeholder="0.00" />
+                        </div>
+                        <div class="field">
+                            <label for="counted-momo">Counted Mobile Money</label>
+                            <input id="counted-momo" type="number" min="0" step="0.01" placeholder="0.00" />
+                        </div>
+                    </div>
+                    <p class="muted" id="close-note" style="font-size:0.8rem;">Reconciliation runs against system totals
+                        once you're back online; if offline, this shift closes locally and settles automatically on next
+                        sync.</p>
+                    <button id="end-shift-btn" class="btn-danger">Close Shift</button>
+                </div>
+            </div>
+
+            <div id="result-card" class="card" style="display:none; max-width:480px;">
+                <h3 style="margin-top:0;">Reconciliation</h3>
+                <div id="result-body"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script>
+        let session;
+
+        document.getElementById('explainer').querySelector('span').outerHTML = SVG_ICONS.info;
+        document.getElementById('nav-icon-checkout').innerHTML = `${SVG_ICONS.cart} Checkout`;
+        document.getElementById('nav-icon-shift').innerHTML = `${SVG_ICONS.clock} Shift`;
+        document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`;
+        document.getElementById('brand-icon-fallback').innerHTML = SVG_ICONS.pill;
+
+        async function loadShiftSales(shiftId) {
+            const tbody = document.getElementById('shift-sales-body');
+            const emptyMsg = document.getElementById('shift-sales-empty');
+            tbody.innerHTML = '';
+
+            const localSales = await db.sales.where('shift_id').equals(shiftId).toArray();
+
+            let combined = localSales;
+            const online = await isServerReachable();
+            if (online && !String(shiftId).startsWith('local-shift-')) {
+                try {
+                    const serverSales = await apiRequest(`/pos/shifts/${shiftId}/sales`);
+                    combined = [...serverSales, ...localSales.filter((s) => s.is_synced === 0)];
+                } catch (e) { console.warn('Could not fetch server-side shift sales:', e.message); }
+            }
+
+            if (combined.length === 0) { emptyMsg.style.display = 'block'; return; }
+            emptyMsg.style.display = 'none';
+
+            combined.sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at));
+
+            const methodLabels = { cash: 'Cash', card: 'Card', mobile_money: 'Mobile Money' };
+
+            for (const s of combined) {
+                const row = document.createElement('tr');
+
+                const timeTd = document.createElement('td');
+                timeTd.textContent = new Date(s.timestamp).toLocaleTimeString();
+
+                const itemsTd = document.createElement('td');
+                const itemCount = s.item_count ?? (await db.sale_items.where('client_transaction_id').equals(s.client_transaction_id).count());
+                itemsTd.textContent = itemCount;
+
+                const methodTd = document.createElement('td');
+                methodTd.textContent = methodLabels[s.payment_method] || s.payment_method;
+                if (s.oversell_flag) {
+                    const tag = document.createElement('div');
+                    tag.className = 'oversell-tag';
+                    tag.textContent = 'Stock shortfall';
+                    methodTd.appendChild(tag);
+                }
+
+                const tenderedTd = document.createElement('td');
+                tenderedTd.textContent = s.amount_tendered != null ? `₵ ${formatCurrency(s.amount_tendered)}` : '—';
+
+                const changeTd = document.createElement('td');
+                changeTd.textContent = s.change_given != null ? `₵ ${formatCurrency(s.change_given)}` : '—';
+
+                const totalTd = document.createElement('td');
+                totalTd.style.fontWeight = '600';
+                totalTd.textContent = `₵ ${formatCurrency(s.total_amount)}`;
+
+                row.append(timeTd, itemsTd, methodTd, tenderedTd, changeTd, totalTd);
+                tbody.appendChild(row);
+            }
+        }
+
+        async function refreshView() {
+            const activeShiftId = await getMeta('active_shift_id', null);
+            document.getElementById('open-panel').style.display = activeShiftId ? 'none' : 'block';
+            document.getElementById('close-panel').style.display = activeShiftId ? 'block' : 'none';
+            if (activeShiftId) {
+                const openedAt = await getMeta('active_shift_opened_at', null);
+                document.getElementById('shift-opened-line').textContent = openedAt
+                    ? `Opened ${new Date(openedAt).toLocaleString()}`
+                    : '';
+                await loadShiftSales(activeShiftId);
+            }
+        }
+
+        document.getElementById('start-shift-btn').addEventListener('click', async () => {
+            const opening_cash = Number(document.getElementById('opening-cash').value || 0);
+            try {
+                const online = await isServerReachable();
+                if (online) {
+                    const result = await apiRequest('/shifts/start', { method: 'POST', body: { opening_cash } });
+                    await startLocalShift({
+                        shift_id: result.shift_id,
+                        cashier_id: session.user_id,
+                        opening_cash,
+                        opened_at: result.opened_at,
+                        start_synced: true,
+                    });
+                } else {
+                    const localShiftId = 'local-shift-' + crypto.randomUUID();
+                    await startLocalShift({
+                        shift_id: localShiftId,
+                        cashier_id: session.user_id,
+                        opening_cash,
+                        opened_at: new Date().toISOString(),
+                        start_synced: false,
+                    });
+                    showToast('Shift started offline — will sync when connection returns');
+                }
+                await refreshView();
+            } catch (err) {
+                showToast(err.message || 'Could not start shift', 'error');
+            }
+        });
+
+        document.getElementById('end-shift-btn').addEventListener('click', async () => {
+            const shift_id = await getMeta('active_shift_id', null);
+            const counted_cash = Number(document.getElementById('counted-cash').value || 0);
+            const counted_card = Number(document.getElementById('counted-card').value || 0);
+            const counted_mobile_money = Number(document.getElementById('counted-momo').value || 0);
+
+            try {
+                // Save counted values locally FIRST, unconditionally — this is what
+                // was previously being silently discarded when closing offline.
+                await closeLocalShiftValues(shift_id, { counted_cash, counted_card, counted_mobile_money });
+
+                const online = await isServerReachable();
+                if (online && !String(shift_id).startsWith('local-shift-')) {
+                    const result = await apiRequest('/shifts/end', {
+                        method: 'POST',
+                        body: { shift_id, counted_cash, counted_card, counted_mobile_money },
+                    });
+                    await markShiftEndSynced(shift_id, result);
+
+                    const resultBody = document.getElementById('result-body');
+                    resultBody.innerHTML = '';
+                    resultBody.append(
+                        reconLine('Cash', result, 'cash'),
+                        reconLine('Card', result, 'card'),
+                        reconLine('Mobile Money', result, 'mobile_money')
+                    );
+                    document.getElementById('result-card').style.display = 'block';
+                } else {
+                    showToast('Offline — counted values saved locally, will reconcile once synced', 'error');
+                }
+
+                await setMeta('active_shift_id', null);
+                await refreshView();
+            } catch (err) {
+                showToast(err.message || 'Could not close shift', 'error');
+            }
+        });
+
+        document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+        (async function init() {
+            session = await requireSession();
+            if (!session) return;
+            await refreshView();
+            const branding = await loadPharmacyBranding();
+            applyBrandingToSidebar(branding);
+        })();
+    </script>
+</body>
+
+</html>

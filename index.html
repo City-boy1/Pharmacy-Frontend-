@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pharmacy System</title>
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+</head>
+
+<body>
+    <div class="login-wrap">
+        <p class="muted">Loading…</p>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        // This is the page a browser hits when someone visits the site root
+        // (e.g. https://your-pharmacy-app.com/). It has no UI of its own — it just
+        // decides where to send the person:
+        //   - already logged in on this device  -> straight to their screen (POS or admin)
+        //   - not logged in                     -> the PIN login screen
+        (async function routeFromEntry() {
+            const session = await getSession();
+            if (session) {
+                window.location.href = session.role === 'admin'
+                    ? 'pages/admin-dashboard.html'
+                    : 'pages/pos.html';
+            } else {
+                window.location.href = 'pages/login.html';
+            }
+        })();
+    </script>
+</body>
+
+</html>

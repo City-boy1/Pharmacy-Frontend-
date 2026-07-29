@@ -1,0 +1,23 @@
+:root {
+  /* Cream tones */
+  --cream-bg: #FAF6EE;      /* main background */
+  --cream-card: #F5EFE1;    /* card/panel background */
+  --cream-border: #E8DFC8;  /* subtle borders/dividers */
+
+  /* Green tones */
+  --green-primary: #2E6F52; /* primary buttons, active states */
+  --green-dark: #1F4D3A;    /* headers, sidebar, emphasis text */
+  --green-light: #7FB699;   /* hover states, secondary accents */
+  --green-pale: #E3EFE8;    /* success backgrounds, subtle highlights */
+
+  /* Status colors (kept separate from theme, for alerts) */
+  --alert-red: #C0392B;     /* expired / critical */
+  --alert-yellow: #D4A017;  /* near-expiry / low stock warning */
+
+  --text-dark: #2B2B25;     /* main body text */
+  --text-muted: #6B6B5F;    /* secondary text */
+
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgba(31, 77, 58, 0.08);
+  --shadow-md: 0 4px 12px rgba(31, 77, 58, 0.12);
+}

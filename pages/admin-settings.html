@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings — Pharmacy Admin</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy Admin</div>
+            </div>
+            <nav>
+                <a href="admin-dashboard.html" id="nav-dashboard">Dashboard</a>
+                <a href="admin-inventory.html" id="nav-inventory">Inventory</a>
+                <a href="admin-reports.html" id="nav-reports">Reports</a>
+                <a href="admin-suppliers.html" id="nav-suppliers">Suppliers</a>
+                <a href="admin-staff.html" id="nav-staff">Staff</a>
+                <a href="admin-audit.html" id="nav-audit">Audit Log</a>
+                <a href="admin-settings.html" class="active" id="nav-settings">Settings</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+            <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-status-text">Checking
+                    sync…</span></div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Settings</h1>
+                <div class="muted" id="admin-name"></div>
+            </div>
+
+            <div class="admin-two-col">
+                <div class="card">
+                    <h3 class="card-title" id="branding-title"></h3>
+                    <div class="field">
+                        <label for="pharm-name">Pharmacy Name</label>
+                        <input id="pharm-name" placeholder="e.g. Hope Pharmacy" />
+                    </div>
+                    <div class="field">
+                        <label for="theme-color-input">Brand Color</label>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <input type="color" id="theme-color-input" value="#2E6F52"
+                                style="width:48px; height:38px; padding:2px; cursor:pointer;" />
+                            <span class="muted" id="theme-color-hex" style="font-size:0.85rem;">#2E6F52</span>
+                            <button type="button" class="btn-secondary" id="theme-color-reset-btn"
+                                style="margin-left:auto; font-size:0.78rem; padding:6px 10px;">Reset to default</button>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Logo</label>
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <div class="logo-preview-wrap">
+                                <img id="logo-preview" alt="Logo preview" style="display:none;" />
+                                <span id="logo-preview-fallback"></span>
+                            </div>
+                            <div>
+                                <button type="button" class="btn-secondary btn-icon" id="logo-upload-btn"></button>
+                                <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/webp"
+                                    style="display:none;" />
+                                <p class="muted" style="margin:6px 0 0; font-size:0.76rem;">PNG/JPEG/WEBP, under
+                                    500KB recommended.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="branding-save-btn" style="width:100%; margin-top:8px;">Save Branding</button>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" id="alerts-title"></h3>
+                    <div class="field">
+                        <label for="low-stock-default">Low Stock Threshold (default)</label>
+                        <input id="low-stock-default" type="number" min="0" />
+                        <p class="muted" style="margin:4px 0 0; font-size:0.78rem;">Used when a medicine has no
+                            specific reorder level set.</p>
+                    </div>
+                    <div class="field">
+                        <label for="expiry-red">Near-Expiry — Red Alert (days)</label>
+                        <input id="expiry-red" type="number" min="0" />
+                    </div>
+                    <div class="field">
+                        <label for="expiry-yellow">Near-Expiry — Yellow Alert (days)</label>
+                        <input id="expiry-yellow" type="number" min="0" />
+                    </div>
+                    <button id="alerts-save-btn" style="width:100%; margin-top:8px;">Save Alert Thresholds</button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+                <h3 class="card-title" id="momo-title"></h3>
+                <div class="field" style="flex-direction:row; align-items:center; gap:10px;">
+                    <input id="momo-enabled" type="checkbox" style="width:auto;" />
+                    <label for="momo-enabled" style="margin:0;">Accept Mobile Money at checkout</label>
+                </div>
+                <div class="field">
+                    <label>Enabled Providers</label>
+                    <div id="momo-provider-checks"
+                        style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
+                </div>
+                <button id="momo-save-btn" style="width:100%; margin-top:8px;">Save Mobile Money Settings</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/admin/settings.js"></script>
+</body>
+
+</html>

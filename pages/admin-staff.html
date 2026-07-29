@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff — Pharmacy Admin</title>
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/pos.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-row">
+                <div class="brand-logo-wrap">
+                    <img id="brand-logo" alt="Pharmacy logo" />
+                    <span id="brand-icon-fallback" style="color:white;"></span>
+                </div>
+                <div id="brand-name">Pharmacy Admin</div>
+            </div>
+            <nav>
+                <a href="admin-dashboard.html" id="nav-dashboard">Dashboard</a>
+                <a href="admin-inventory.html" id="nav-inventory">Inventory</a>
+                <a href="admin-reports.html" id="nav-reports">Reports</a>
+                <a href="admin-suppliers.html" id="nav-suppliers">Suppliers</a>
+                <a href="admin-staff.html" class="active" id="nav-staff">Staff</a>
+                <a href="admin-audit.html" id="nav-audit">Audit Log</a>
+                <a href="admin-settings.html" id="nav-settings">Settings</a>
+                <a href="#" id="logout-link">Log Out</a>
+            </nav>
+            <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-status-text">Checking
+                    sync…</span></div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>Staff</h1>
+                <div class="muted" id="admin-name"></div>
+            </div>
+
+            <div class="admin-toolbar">
+                <div class="search-input-wrap"></div>
+                <button class="btn-icon" id="add-staff-btn"></button>
+            </div>
+
+            <div class="card">
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Shift Status</th>
+                                <th>Active</th>
+                                <th>Added</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="staff-tbody">
+                            <tr>
+                                <td colspan="5" class="muted">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Staff Modal -->
+    <div class="modal-overlay" id="staff-modal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Add Staff Member</h3>
+                <button class="modal-close" id="staff-modal-close"></button>
+            </div>
+            <div class="field">
+                <label for="staff-name">Full Name *</label>
+                <input id="staff-name" placeholder="e.g. Ama Owusu" />
+            </div>
+            <div class="field">
+                <label for="staff-role">Role *</label>
+                <select id="staff-role">
+                    <option value="cashier">Cashier</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="staff-pin">4-Digit PIN *</label>
+                <input id="staff-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" />
+                <p class="muted" style="margin:4px 0 0; font-size:0.78rem;">The staff member will use this PIN to log
+                    in at the till.</p>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-secondary" id="staff-cancel-btn" style="flex:1;">Cancel</button>
+                <button id="staff-save-btn" style="flex:1;">Save Staff Member</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="../js/db.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/icons.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/admin/staff.js"></script>
+</body>
+
+</html>
