@@ -1,10 +1,8 @@
 // Thin fetch wrapper. Centralizes base URL + auth header + error handling.
 // Every online API call in the app should go through apiRequest().
 
-// Auto-detects environment: localhost during development, your real backend
-// once deployed. CHANGE ONLY THE ONE LINE BELOW when you deploy your backend
-const PRODUCTION_API_BASE_URL = 'https://your-backend-domain.com/api/v1'; // <-- edit this when you deploy
 
+const PRODUCTION_API_BASE_URL = 'https://pharmacy-backend-u6xl.onrender.com/api/v1';
 const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const API_BASE_URL = window.PHARMACY_API_BASE_URL || (isLocalDev ? 'http://localhost:4000/api/v1' : PRODUCTION_API_BASE_URL);
 async function apiRequest(path, { method = 'GET', body, isFormData = false } = {}) {
