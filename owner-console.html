@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Console</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f4f2ec;
+            color: #2b2b2b;
+            margin: 0;
+            padding: 24px;
+        }
+
+        .wrap {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            color: #1f4d3d;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e2dcc8;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        select {
+            font-size: 0.9rem;
+            padding: 9px 12px;
+            border: 1px solid #d8d2bd;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #6b6455;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        button {
+            font-size: 0.9rem;
+            background: #2f7a5c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1f4d3d;
+        }
+
+        button.danger {
+            background: #a13022;
+        }
+
+        button.secondary {
+            background: transparent;
+            color: #1f4d3d;
+            border: 1px solid #d8d2bd;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .badge-active {
+            background: #dff0e6;
+            color: #1f4d3d;
+        }
+
+        .badge-suspended {
+            background: #fde2e2;
+            color: #a12525;
+        }
+
+        .badge-trial {
+            background: #fdf1cf;
+            color: #8a6100;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .row>div {
+            flex: 1;
+        }
+
+        .muted {
+            color: #8a8474;
+            font-size: 0.8rem;
+        }
+
+        #login-screen {
+            max-width: 340px;
+            margin: 80px auto;
+        }
+
+        .credential-box {
+            background: #fdf1cf;
+            border: 1px solid #e8d38a;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+        }
+
+        .credential-box code {
+            background: white;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="login-screen" class="card">
+        <h1>Console</h1>
+        <label for="pw">Password</label>
+        <input id="pw" type="password" />
+        <button id="login-btn" style="width:100%;">Enter</button>
+        <p class="muted" id="login-error"></p>
+    </div>
+
+    <div id="app" class="wrap" style="display:none;">
+        <h1>Pharmacy Console</h1>
+
+        <div class="card">
+            <h3>Create pharmacy</h3>
+            <div class="row">
+                <div>
+                    <label>Pharmacy name</label>
+                    <input id="new-name" />
+                </div>
+                <div>
+                    <label>Address (optional)</label>
+                    <input id="new-address" />
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Contact info (optional)</label>
+                    <input id="new-contact" />
+                </div>
+                <div>
+                    <label>First admin's name</label>
+                    <input id="new-admin-name" />
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Admin PIN (4 digits)</label>
+                    <input id="new-admin-pin" maxlength="4" />
+                </div>
+                <div>
+                    <label>Trial length (days, blank = full paid access)</label>
+                    <input id="new-trial-days" type="number" min="1" />
+                </div>
+            </div>
+            <button id="create-btn">Create pharmacy</button>
+            <div id="create-result"></div>
+        </div>
+
+        <div class="card">
+            <h3>Pharmacies</h3>
+            <table id="pharmacy-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                        <th>Staff</th>
+                        <th>Last login</th>
+                        <th>Sales</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pharmacy-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ---- EDIT THESE TWO LINES ----
+        const API_BASE = 'https://pharmacy-backend-u6xl.onrender.com/api/v1/icontrol';
+        // -------------------------------
+
+        let token = sessionStorage.getItem('owner_token') || null; // cleared when tab closes — not persisted to disk
+
+        function showApp() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            loadPharmacies();
+        }
+
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const password = document.getElementById('pw').value;
+            try {
+                const res = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Login failed');
+                token = data.token;
+                sessionStorage.setItem('owner_token', token);
+                showApp();
+            } catch (err) {
+                document.getElementById('login-error').textContent = err.message;
+            }
+        });
+
+        async function apiCall(path, opts = {}) {
+            const res = await fetch(`${API_BASE}${path}`, {
+                ...opts,
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        function badgeFor(status) {
+            return `<span class="badge badge-${status}">${status}</span>`;
+        }
+
+        async function loadPharmacies() {
+            const pharmacies = await apiCall('/pharmacies');
+            const tbody = document.getElementById('pharmacy-tbody');
+            tbody.innerHTML = '';
+            for (const p of pharmacies) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+        <td>${p.name}</td>
+        <td>${badgeFor(p.license_status)}</td>
+        <td>${p.license_expires_at ? new Date(p.license_expires_at).toLocaleDateString() : '—'}</td>
+        <td>${p.active_staff}</td>
+        <td>${p.last_login_at ? new Date(p.last_login_at).toLocaleString() : 'Never'}</td>
+        <td>${p.total_sales}</td>
+        <td>
+          <button class="secondary" data-action="activate" data-id="${p.pharmacy_id}">Activate</button>
+          <button class="danger" data-action="suspend" data-id="${p.pharmacy_id}">Suspend</button>
+        </td>
+      `;
+                tbody.appendChild(tr);
+            }
+            tbody.querySelectorAll('button').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const status = btn.dataset.action === 'suspend' ? 'suspended' : 'active';
+                    await apiCall(`/pharmacies/${btn.dataset.id}/license`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ license_status: status }),
+                    });
+                    loadPharmacies();
+                });
+            });
+        }
+
+        document.getElementById('create-btn').addEventListener('click', async () => {
+            const body = {
+                name: document.getElementById('new-name').value,
+                address: document.getElementById('new-address').value,
+                contact_info: document.getElementById('new-contact').value,
+                admin_name: document.getElementById('new-admin-name').value,
+                admin_pin: document.getElementById('new-admin-pin').value,
+                trial_days: document.getElementById('new-trial-days').value || null,
+            };
+            try {
+                const result = await apiCall('/pharmacies', { method: 'POST', body: JSON.stringify(body) });
+                document.getElementById('create-result').innerHTML = `
+        <div class="credential-box">
+          <strong>Send these to the client now — shown only once:</strong><br/>
+          Pharmacy ID: <code>${result.pharmacy_id}</code><br/>
+          Admin User ID: <code>${result.admin_user_id}</code><br/>
+          PIN: <code>${result.admin_pin}</code>
+        </div>
+      `;
+                loadPharmacies();
+            } catch (err) {
+                document.getElementById('create-result').innerHTML = `<p style="color:#a12525;">${err.message}</p>`;
+            }
+        });
+
+        if (token) showApp();
+    </script>
+
+</body>
+
+</html>
