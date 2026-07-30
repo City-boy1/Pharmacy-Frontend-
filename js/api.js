@@ -3,9 +3,29 @@
 
 
 const PRODUCTION_API_BASE_URL = 'https://pharmacy-backend-u6xl.onrender.com/api/v1';
+const LOCAL_API_BASE_URL = 'http://localhost:4000/api/v1';
+
 const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_BASE_URL = window.PHARMACY_API_BASE_URL || (isLocalDev ? 'http://localhost:4000/api/v1' : PRODUCTION_API_BASE_URL);
+
+let API_BASE_URL = window.PHARMACY_API_BASE_URL || (isLocalDev ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL);
+
+// On Live Server, check whether a local backend is actually running.
+// If not reachable within 1.5s, silently fall back to the live Render backend.
+const apiBaseUrlReady = (async () => {
+  if (isLocalDev && !window.PHARMACY_API_BASE_URL) {
+    try {
+      const res = await fetch('http://localhost:4000/health', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(1500),
+      });
+      if (!res.ok) throw new Error('local backend not healthy');
+    } catch {
+      API_BASE_URL = PRODUCTION_API_BASE_URL;
+    }
+  }
+})();
 async function apiRequest(path, { method = 'GET', body, isFormData = false } = {}) {
+  await apiBaseUrlReady;
   const session = await getSession();
   const headers = {};
   if (session && session.token) headers['Authorization'] = `Bearer ${session.token}`;
@@ -39,6 +59,7 @@ async function apiRequest(path, { method = 'GET', body, isFormData = false } = {
 // Simple connectivity check. navigator.onLine is a hint, not a guarantee, so
 // we also verify with a lightweight ping before trusting "online" for sync.
 async function isServerReachable() {
+  await apiBaseUrlReady;
   if (!navigator.onLine) return false;
   try {
     const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`, {
