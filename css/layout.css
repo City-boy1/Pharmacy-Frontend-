@@ -169,3 +169,15 @@ tr:hover td { background: var(--green-pale); }
   border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 999;
 }
 .toast.error { background: var(--alert-red); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-card {
+  background: var(--cream-card); border: 1px solid var(--cream-border);
+  border-radius: 10px; padding: 24px; max-width: 380px; width: 90%;
+}
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;
+}

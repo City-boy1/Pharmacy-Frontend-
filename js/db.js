@@ -209,6 +209,8 @@ async function pushPendingShifts() {
           counted_cash: row.counted_cash,
           counted_card: row.counted_card,
           counted_mobile_money: row.counted_mobile_money,
+          forced_closed_by: row.forced_closed_by || null,
+          forced_closed_reason: row.forced_closed_reason || null,
         },
       });
       await markShiftEndSynced(row.shift_id, result);
@@ -218,20 +220,11 @@ async function pushPendingShifts() {
   }
 }
 
-async function runSyncCycle() {
-  if (syncInProgress) return;
-  syncInProgress = true;
-  try {
-    const reachable = await isServerReachable();
-    if (reachable) {
-      await pushPendingShifts(); // before sales, so sales get the real shift_id if possible
-      await pushPendingSales();
-      await pullCatalog();
-    }
-  } catch (err) {
-    console.warn('Sync cycle error:', err.message);
-  } finally {
-    syncInProgress = false;
-    await notifyListeners();
-  }
+// Best-effort prefill only — reads the most recently closed shift on THIS
+// device. Not authoritative (a different cashier's device won't see it),
+// just saves the next cashier from typing in a number while a customer waits.
+async function getLastClosedShiftCash() {
+  const all = await db.shifts.toArray();
+  const closed = all.filter((r) => r.closed_at).sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at));
+  return closed.length ? closed[0].counted_cash : null;
 }

@@ -12,6 +12,17 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
     <link rel="stylesheet" href="../css/variables.css" />
+    <script>
+        (function () {
+            var primary = localStorage.getItem('pharmacy_theme_color');
+            var dark = localStorage.getItem('pharmacy_theme_dark');
+            var pale = localStorage.getItem('pharmacy_theme_pale');
+            if (primary) document.documentElement.style.setProperty('--green-primary', primary);
+            if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (pale) document.documentElement.style.setProperty('--green-pale', pale);
+        })();
+    </script>
+
     <link rel="stylesheet" href="../css/layout.css" />
     <link rel="stylesheet" href="../css/pos.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
@@ -26,6 +37,23 @@
                     <span id="brand-icon-fallback" style="color:white;"></span>
                 </div>
                 <div id="brand-name">Pharmacy POS</div>
+                <script>
+                    (function () {
+                        try {
+                            var cached = JSON.parse(localStorage.getItem('pharmacy_brand_cache') || 'null');
+                            if (!cached) return;
+                            var nameEl = document.getElementById('brand-name');
+                            if (nameEl && cached.name) nameEl.textContent = cached.name;
+                            var logoEl = document.getElementById('brand-logo');
+                            if (logoEl && cached.logo_url) {
+                                logoEl.src = cached.logo_url;
+                                logoEl.style.display = 'block';
+                                var fallback = document.getElementById('brand-icon-fallback');
+                                if (fallback) fallback.style.display = 'none';
+                            }
+                        } catch (e) { }
+                    })();
+                </script>
             </div>
             <nav>
                 <a href="pos.html" id="nav-icon-checkout">Checkout</a>
@@ -48,6 +76,15 @@
                     Every sale is tagged to the shift so the system knows what total it expects — closing compares
                     that to what was physically counted, and flags any difference (variance) for the admin to review.
                 </div>
+            </div>
+            <div id="force-close-panel" class="card" style="display:none; max-width:480px;">
+                <h3 style="margin-top:0;">Shift Left Open</h3>
+                <p class="muted">
+                    <strong id="force-close-name"></strong> did not close their shift before logging out.
+                    You can force-close it now (flagged for admin review — no drawer count taken) and start
+                    your own shift immediately.
+                </p>
+                <button id="force-close-btn" class="btn-danger">Force-Close & Start My Shift</button>
             </div>
 
             <div id="open-panel" class="card" style="max-width:420px;">
@@ -191,9 +228,32 @@
 
         async function refreshView() {
             const activeShiftId = await getMeta('active_shift_id', null);
-            document.getElementById('open-panel').style.display = activeShiftId ? 'none' : 'block';
-            document.getElementById('close-panel').style.display = activeShiftId ? 'block' : 'none';
+            let activeShiftRow = null;
             if (activeShiftId) {
+                activeShiftRow = await db.shifts.where('shift_id').equals(activeShiftId).first();
+            }
+            const isMyShift = activeShiftRow && activeShiftRow.cashier_id === session.user_id;
+
+            document.getElementById('open-panel').style.display = 'none';
+            document.getElementById('close-panel').style.display = 'none';
+            const forceCloseEl = document.getElementById('force-close-panel');
+            if (forceCloseEl) forceCloseEl.style.display = 'none';
+
+            if (activeShiftId && !isMyShift) {
+                // Previous cashier left without closing — don't block the queue.
+                const prevUser = await db.users.get(activeShiftRow.cashier_id);
+                document.getElementById('force-close-name').textContent = prevUser ? prevUser.name : 'Previous cashier';
+                forceCloseEl.style.display = 'block';
+                return;
+            }
+
+            document.getElementById('open-panel').style.display = isMyShift ? 'none' : 'block';
+            if (!isMyShift) {
+                const lastCash = await getLastClosedShiftCash();
+                if (lastCash != null) document.getElementById('opening-cash').value = lastCash;
+            }
+            document.getElementById('close-panel').style.display = isMyShift ? 'block' : 'none';
+            if (isMyShift) {
                 const openedAt = await getMeta('active_shift_opened_at', null);
                 document.getElementById('shift-opened-line').textContent = openedAt
                     ? `Opened ${new Date(openedAt).toLocaleString()}`
@@ -201,6 +261,24 @@
                 await loadShiftSales(activeShiftId);
             }
         }
+
+        document.getElementById('force-close-btn').addEventListener('click', async () => {
+            const activeShiftId = await getMeta('active_shift_id', null);
+            // Zero counted values + a flag — admin reconciles the real drawer count later.
+            await closeLocalShiftValues(activeShiftId, {
+                counted_cash: null, counted_card: null, counted_mobile_money: null,
+            });
+            const row = await db.shifts.where('shift_id').equals(activeShiftId).first();
+            if (row) {
+                await db.shifts.update(row.local_id, {
+                    forced_closed_by: session.user_id,
+                    forced_closed_reason: 'Previous cashier did not close before logout',
+                });
+            }
+            await setMeta('active_shift_id', null);
+            showToast('Previous shift force-closed and flagged for admin review');
+            await refreshView();
+        });
 
         document.getElementById('start-shift-btn').addEventListener('click', async () => {
             const opening_cash = Number(document.getElementById('opening-cash').value || 0);

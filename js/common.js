@@ -18,6 +18,32 @@ function formatCurrency(amount) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Builds one reconciliation row (expected vs counted vs variance) for the
+// shift-close result card. `key` matches the shifts table column suffix
+function reconLine(label, result, key) {
+  const system = Number(result[`system_${key}`] || 0);
+  const countedRaw = result[`counted_${key}`];
+  const varianceRaw = result[`variance_${key}`];
+  const counted = countedRaw != null ? Number(countedRaw) : null;
+  const variance = varianceRaw != null ? Number(varianceRaw) : null;
+
+  const row = document.createElement('div');
+  row.className = 'recon-line';
+  row.style.cssText = 'display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--cream-border); font-size:0.9rem;';
+
+  let rightSide;
+  if (variance === null) {
+    rightSide = `Expected ₵ ${formatCurrency(system)} &nbsp;•&nbsp; <strong style="color:var(--alert-yellow)">Not counted — needs review</strong>`;
+  } else {
+    const varianceColor = variance === 0 ? 'var(--text-muted)' : (variance < 0 ? 'var(--alert-red)' : 'var(--alert-yellow)');
+    const varianceSign = variance > 0 ? '+' : '';
+    rightSide = `Expected ₵ ${formatCurrency(system)} &nbsp;•&nbsp; Counted ₵ ${formatCurrency(counted)} &nbsp;•&nbsp; <strong style="color:${varianceColor}">${varianceSign}${formatCurrency(variance)}</strong>`;
+  }
+
+  row.innerHTML = `<span>${label}</span><span>${rightSide}</span>`;
+  return row;
+}
+
 function showToast(message, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast ${type === 'error' ? 'error' : ''}`;
@@ -40,8 +66,50 @@ async function requireSession() {
 }
 
 async function logout() {
+  const session = await getSession();
+  if (session) {
+    const activeShiftId = await getMeta('active_shift_id', null);
+    if (activeShiftId) {
+      const shiftRow = await db.shifts.where('shift_id').equals(activeShiftId).first();
+      if (shiftRow && shiftRow.cashier_id === session.user_id) {
+        const choice = await confirmShiftCloseModal();
+        if (choice === 'cancel') return;
+        if (choice === 'close') {
+          window.location.href = 'shift.html';
+          return;
+        }
+        // choice === 'leave': fall through and log out, shift stays open
+        // for the next cashier's force-close prompt on shift.html
+      }
+    }
+  }
   await clearSession();
   window.location.href = 'login.html';
+}
+
+// Lightweight modal, styled off the app's existing CSS variables — no new
+// dependency. Resolves 'close' | 'leave' | 'cancel'.
+function confirmShiftCloseModal() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-card">
+        <h3 style="margin-top:0;">You have an open shift</h3>
+        <p class="muted">Count your drawer and close it now, or leave it open for the next
+          cashier to review — either way it stays safe, but closing now keeps the record clean.</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-choice="cancel">Cancel</button>
+          <button class="btn-secondary" data-choice="leave">Log Out Anyway</button>
+          <button data-choice="close">Close Shift First</button>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', (e) => {
+      const choice = e.target.dataset.choice;
+      if (choice) { overlay.remove(); resolve(choice); }
+    });
+    document.body.appendChild(overlay);
+  });
 }
 
 // Asks the browser to treat this site's storage as "persistent" — meaning the
@@ -83,6 +151,7 @@ function applyBrandingToSidebar(profile) {
     if (fallbackIcon) fallbackIcon.style.display = 'none';
   }
   if (profile.theme_color) applyThemeColor(profile.theme_color);
+  localStorage.setItem('pharmacy_brand_cache', JSON.stringify({ name: profile.name, logo_url: profile.logo_url }));
 }
 
 // Overrides the app's default green with this pharmacy's chosen color, by
@@ -90,10 +159,14 @@ function applyBrandingToSidebar(profile) {
 // Also derives a slightly darker shade for hover/emphasis states, so the
 // pharmacy only has to pick ONE color, not maintain a whole palette.
 function applyThemeColor(hex) {
+  const dark = shadeColor(hex, -20);
+  const pale = shadeColor(hex, 85);
   document.documentElement.style.setProperty('--green-primary', hex);
-  document.documentElement.style.setProperty('--green-dark', shadeColor(hex, -20));
-  document.documentElement.style.setProperty('--green-pale', shadeColor(hex, 85));
-  localStorage.setItem('pharmacy_theme_color', hex); // synchronous cache, read before first paint next load
+  document.documentElement.style.setProperty('--green-dark', dark);
+  document.documentElement.style.setProperty('--green-pale', pale);
+  localStorage.setItem('pharmacy_theme_color', hex);
+  localStorage.setItem('pharmacy_theme_dark', dark);
+  localStorage.setItem('pharmacy_theme_pale', pale);
 }
 
 function shadeColor(hex, percent) {

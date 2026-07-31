@@ -82,6 +82,7 @@ async function runSyncCycle() {
   try {
     const reachable = await isServerReachable();
     if (reachable) {
+      await pushPendingShifts();
       await pushPendingSales();
       await pullCatalog();
     }

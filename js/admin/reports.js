@@ -92,7 +92,7 @@ function buildSaleRow(sale) {
 }
 
 function renderSalesTable(sales) {
-  const tbody = document.getElementById('sales-tbody');
+  const tbody = document.getElementById('report-tbody');
   tbody.innerHTML = '';
   if (sales.length === 0) {
     const tr = document.createElement('tr');
@@ -105,6 +105,109 @@ function renderSalesTable(sales) {
     return;
   }
   for (const sale of sales) tbody.appendChild(buildSaleRow(sale));
+}
+
+let activeTab = 'sales';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
+  document.getElementById('tab-shifts').classList.toggle('active', tab === 'shifts');
+  document.getElementById('page-title').textContent = tab === 'sales' ? 'Sales Reports' : 'Shift Reconciliation';
+  document.getElementById('flagged-field').style.display = tab === 'shifts' ? 'block' : 'none';
+  document.getElementById('report-stat-grid').style.display = tab === 'sales' ? 'grid' : 'none';
+  setTableHeaders(tab);
+  loadCurrentTab();
+}
+
+function setTableHeaders(tab) {
+  document.getElementById('report-thead').innerHTML = tab === 'sales'
+    ? '<tr><th>Date/Time</th><th>Ref</th><th>Cashier</th><th>Payment</th><th>Total</th><th></th></tr>'
+    : '<tr><th>Cashier</th><th>Opened</th><th>Closed</th><th>Cash</th><th>Card</th><th>Mobile Money</th><th>Status</th></tr>';
+}
+
+function loadCurrentTab() {
+  return activeTab === 'sales' ? loadReport() : loadShifts();
+}
+
+function methodCell(counted, variance) {
+  if (counted == null) return '<span class="muted">— not counted</span>';
+  const v = Number(variance);
+  const cls = v === 0 ? 'muted' : (v < 0 ? 'badge badge-red' : 'badge badge-yellow');
+  return `₵${formatCurrency(counted)} <span class="${cls}">${v > 0 ? '+' : ''}${formatCurrency(v)}</span>`;
+}
+
+function statusBadge(shift) {
+  if (shift.forced_closed_by) {
+    return `<span class="badge badge-red">Force-closed by ${shift.forced_closed_by_name || '—'}</span>`;
+  }
+  const hasVariance = [shift.variance_cash, shift.variance_card, shift.variance_mobile_money]
+    .some((v) => v != null && Number(v) !== 0);
+  return hasVariance ? '<span class="badge badge-yellow">Variance</span>' : '<span class="muted">Clean</span>';
+}
+
+function buildShiftRow(shift) {
+  const tr = document.createElement('tr');
+  const cells = [
+    shift.cashier_name,
+    new Date(shift.opened_at).toLocaleString(),
+    shift.closed_at ? new Date(shift.closed_at).toLocaleString() : '—',
+  ];
+  for (const c of cells) {
+    const td = document.createElement('td');
+    td.textContent = c;
+    tr.appendChild(td);
+  }
+  const cashTd = document.createElement('td'); cashTd.innerHTML = methodCell(shift.counted_cash, shift.variance_cash);
+  const cardTd = document.createElement('td'); cardTd.innerHTML = methodCell(shift.counted_card, shift.variance_card);
+  const momoTd = document.createElement('td'); momoTd.innerHTML = methodCell(shift.counted_mobile_money, shift.variance_mobile_money);
+  const statusTd = document.createElement('td');
+  statusTd.innerHTML = statusBadge(shift);
+  if (shift.forced_closed_reason) {
+    const reasonEl = document.createElement('div');
+    reasonEl.className = 'muted';
+    reasonEl.style.fontSize = '0.75rem';
+    reasonEl.textContent = shift.forced_closed_reason;
+    statusTd.appendChild(reasonEl);
+  }
+  tr.append(cashTd, cardTd, momoTd, statusTd);
+  return tr;
+}
+
+function renderShiftsTable(shifts) {
+  const tbody = document.getElementById('report-tbody');
+  tbody.innerHTML = '';
+  if (shifts.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 7;
+    td.className = 'muted';
+    td.textContent = 'No shifts in this range.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const s of shifts) tbody.appendChild(buildShiftRow(s));
+}
+
+async function loadShifts() {
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  const cashier_id = document.getElementById('filter-cashier').value;
+  const flagged = document.getElementById('filter-flagged').checked;
+
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (cashier_id) params.set('cashier_id', cashier_id);
+  if (flagged) params.set('flagged', 'true');
+
+  try {
+    const shifts = await apiRequest(`/admin/shifts${params.toString() ? '?' + params.toString() : ''}`);
+    renderShiftsTable(shifts);
+  } catch (err) {
+    showToast(err.message || 'Could not load shifts', 'error');
+  }
 }
 
 async function loadCashiers() {
@@ -142,7 +245,10 @@ async function loadReport() {
   }
 }
 
-document.getElementById('apply-filter-btn').addEventListener('click', loadReport);
+document.getElementById('apply-filter-btn').addEventListener('click', loadCurrentTab);
+
+document.getElementById('tab-sales').addEventListener('click', () => switchTab('sales'));
+document.getElementById('tab-shifts').addEventListener('click', () => switchTab('shifts'));
 document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
 (async function init() {
@@ -152,7 +258,7 @@ document.getElementById('logout-link').addEventListener('click', (e) => { e.prev
   document.getElementById('admin-name').textContent = session.name;
 
   await loadCashiers();
-  await loadReport();
+  await loadCurrentTab();
 
   const branding = await loadPharmacyBranding();
   applyBrandingToSidebar(branding);

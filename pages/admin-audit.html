@@ -12,6 +12,17 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
     <link rel="stylesheet" href="../css/variables.css" />
+    <script>
+        (function () {
+            var primary = localStorage.getItem('pharmacy_theme_color');
+            var dark = localStorage.getItem('pharmacy_theme_dark');
+            var pale = localStorage.getItem('pharmacy_theme_pale');
+            if (primary) document.documentElement.style.setProperty('--green-primary', primary);
+            if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (pale) document.documentElement.style.setProperty('--green-pale', pale);
+        })();
+    </script>
+
     <link rel="stylesheet" href="../css/layout.css" />
     <link rel="stylesheet" href="../css/pos.css" />
     <link rel="stylesheet" href="../css/admin.css" />
@@ -26,6 +37,23 @@
                     <span id="brand-icon-fallback" style="color:white;"></span>
                 </div>
                 <div id="brand-name">Pharmacy Admin</div>
+                <script>
+                    (function () {
+                        try {
+                            var cached = JSON.parse(localStorage.getItem('pharmacy_brand_cache') || 'null');
+                            if (!cached) return;
+                            var nameEl = document.getElementById('brand-name');
+                            if (nameEl && cached.name) nameEl.textContent = cached.name;
+                            var logoEl = document.getElementById('brand-logo');
+                            if (logoEl && cached.logo_url) {
+                                logoEl.src = cached.logo_url;
+                                logoEl.style.display = 'block';
+                                var fallback = document.getElementById('brand-icon-fallback');
+                                if (fallback) fallback.style.display = 'none';
+                            }
+                        } catch (e) { }
+                    })();
+                </script>
             </div>
             <nav>
                 <a href="admin-dashboard.html" id="nav-dashboard">Dashboard</a>

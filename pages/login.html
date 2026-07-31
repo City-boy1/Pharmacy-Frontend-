@@ -12,6 +12,17 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
     <link rel="stylesheet" href="../css/variables.css" />
+    <script>
+        (function () {
+            var primary = localStorage.getItem('pharmacy_theme_color');
+            var dark = localStorage.getItem('pharmacy_theme_dark');
+            var pale = localStorage.getItem('pharmacy_theme_pale');
+            if (primary) document.documentElement.style.setProperty('--green-primary', primary);
+            if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (pale) document.documentElement.style.setProperty('--green-pale', pale);
+        })();
+    </script>
+
     <link rel="stylesheet" href="../css/layout.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
@@ -152,7 +163,7 @@
         }
 
         function redirectByRole(role) {
-            window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'pos.html';
+            window.location.href = role === 'admin' ? 'admin-dashboard.html' : 'shift.html';
         }
 
         document.getElementById('pin-pad').addEventListener('click', (e) => {
