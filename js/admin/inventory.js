@@ -29,6 +29,8 @@ document.getElementById('batch-list-modal-close').innerHTML = SVG_ICONS.x;
 document.getElementById('import-modal-close').innerHTML = SVG_ICONS.x;
 document.getElementById('med-barcode-scan-btn').innerHTML = SVG_ICONS.barcode;
 
+initActiveNavScroll();
+
 const searchWrap = document.querySelector('.admin-toolbar .search-input-wrap');
 searchWrap.innerHTML = `${SVG_ICONS.search}<input id="inv-search-box" placeholder="Filter by name, generic name, or barcode…" />`;
 const invSearchBox = document.getElementById('inv-search-box');

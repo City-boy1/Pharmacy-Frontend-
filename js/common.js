@@ -44,14 +44,85 @@ function reconLine(label, result, key) {
   return row;
 }
 
+
+function scrollActiveNavIntoView() {
+  const activeLink = document.querySelector('.sidebar nav a.active');
+  if (!activeLink) return;
+  activeLink.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+}
+
+function markActiveNavLink() {
+  const current = window.location.pathname.split('/').pop() || 'admin-dashboard.html';
+  document.querySelectorAll('.sidebar nav a').forEach((a) => {
+    const href = a.getAttribute('href');
+    a.classList.toggle('active', href === current);
+  });
+}
+
+function initActiveNavScroll() {
+  markActiveNavLink();          
+  scrollActiveNavIntoView();
+  window.addEventListener('load', scrollActiveNavIntoView);
+
+  // Extra safety net: if the nav's scrollable width changes after we've
+  // already positioned it (e.g. a web font swaps in and link labels widen),
+  // reapply once more so the active tab doesn't silently drift out of view.
+  const nav = document.querySelector('.sidebar nav');
+  if (nav && 'ResizeObserver' in window) {
+    let firstFire = true;
+    const observer = new ResizeObserver(() => {
+      if (firstFire) { firstFire = false; return; } // skip the initial observe callback
+      scrollActiveNavIntoView();
+      observer.disconnect(); // only correct for one late shift, not a permanent watcher
+    });
+    observer.observe(nav);
+  }
+}
+
+function ensureToastContainer() {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
 function showToast(message, type = 'success') {
+  const container = ensureToastContainer();
   const el = document.createElement('div');
   el.className = `toast ${type === 'error' ? 'error' : ''}`;
-  const icon = type === 'error' ? SVG_ICONS.info : SVG_ICONS.check;
-  el.innerHTML = `${icon}<span></span>`;
-  el.querySelector('span').textContent = message; // textContent, not innerHTML, to avoid any injection
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
+
+  const iconWrap = document.createElement('span');
+  iconWrap.innerHTML = type === 'error' ? SVG_ICONS.info : SVG_ICONS.check;
+  const textEl = document.createElement('span');
+  textEl.textContent = message; // textContent, not innerHTML, to avoid any injection
+  el.append(iconWrap, textEl);
+
+  if (type === 'error') {
+    // Persistent: stays on screen until the user dismisses it, or until the
+    // next successful action clears it (see clearErrorToasts) — so an error
+    // is never missed just because no one was looking at the screen the
+    // instant it appeared.
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Dismiss');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', () => el.remove());
+    el.appendChild(closeBtn);
+    container.appendChild(el);
+  } else {
+    // A success/info toast means "the right thing" just happened — clear
+    // any leftover error toasts at the same time, then auto-dismiss itself.
+    clearErrorToasts();
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+}
+
+function clearErrorToasts() {
+  document.querySelectorAll('#toast-container .toast.error').forEach((el) => el.remove());
 }
 
 // Redirects to login if there's no local session. Call at the top of every

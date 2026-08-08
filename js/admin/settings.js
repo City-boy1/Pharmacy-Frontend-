@@ -19,6 +19,7 @@ document.getElementById('momo-title').innerHTML = `${SVG_ICONS.mobile} Mobile Mo
 document.getElementById('logo-upload-btn').innerHTML = `${SVG_ICONS.upload} Upload Logo`;
 document.getElementById('logo-preview-fallback').innerHTML = SVG_ICONS.pill;
 
+initActiveNavScroll();
 let pendingLogoDataUrl = null;
 
 // ---------- Branding ----------

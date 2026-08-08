@@ -13,6 +13,8 @@ document.getElementById('nav-audit').innerHTML = `${SVG_ICONS.history} Audit Log
 document.getElementById('nav-settings').innerHTML = `${SVG_ICONS.settings} Settings`;
 document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`;
 
+initActiveNavScroll();
+
 const searchWrap = document.querySelector('.admin-toolbar .search-input-wrap');
 searchWrap.innerHTML = `${SVG_ICONS.search}<input id="audit-search-box" placeholder="Filter by user or action type…" />`;
 const auditSearchBox = document.getElementById('audit-search-box');

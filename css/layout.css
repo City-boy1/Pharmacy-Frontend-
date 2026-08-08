@@ -163,12 +163,40 @@ tr:hover td { background: var(--green-pale); }
 .pin-pad button { padding: 16px; font-size: 1.1rem; background: white; color: var(--text-dark); border: 1px solid var(--cream-border); }
 .pin-pad button:hover { background: var(--green-pale); }
 
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 999;
+  max-width: 340px;
+}
 .toast {
-  position: fixed; bottom: 20px; right: 20px;
-  background: var(--green-dark); color: white; padding: 12px 18px;
-  border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 999;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--green-dark); color: white; padding: 12px 40px 12px 18px;
+  border-radius: var(--radius); box-shadow: var(--shadow-md);
 }
 .toast.error { background: var(--alert-red); }
+.toast-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: white;
+  opacity: 0.75;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px;
+  width: auto;
+}
+.toast-close:hover { opacity: 1; background: rgba(255,255,255,0.15); border-radius: 4px; }
 
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);

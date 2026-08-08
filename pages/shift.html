@@ -306,7 +306,7 @@
                     });
                     showToast('Shift started offline — will sync when connection returns');
                 }
-                await refreshView();
+                window.location.href = 'pos.html';
             } catch (err) {
                 showToast(err.message || 'Could not start shift', 'error');
             }

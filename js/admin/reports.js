@@ -17,6 +17,8 @@ document.getElementById('nav-settings').innerHTML = `${SVG_ICONS.settings} Setti
 document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`;
 document.getElementById('apply-filter-btn').innerHTML = `${SVG_ICONS.search} Apply`;
 
+initActiveNavScroll();
+
 const PAYMENT_ICON = { cash: SVG_ICONS.cash, card: SVG_ICONS.card, mobile_money: SVG_ICONS.mobile };
 const PAYMENT_LABEL = { cash: 'Cash', card: 'Card', mobile_money: 'Mobile Money' };
 

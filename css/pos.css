@@ -193,6 +193,7 @@
     width: 100%;
     order: 3;
     flex-basis: 100%;
+    scroll-behavior: auto;
   }
 
   .sidebar nav a {

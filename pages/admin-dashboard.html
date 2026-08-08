@@ -119,6 +119,7 @@
         document.getElementById('near-expiry-title').innerHTML = `${SVG_ICONS.clock} Near Expiry`;
 
         document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+        initActiveNavScroll();
 
         function renderStatGrid({ lowStockCount, nearExpiryCount, staffCount, supplierCount }) {
             const grid = document.getElementById('stat-grid');

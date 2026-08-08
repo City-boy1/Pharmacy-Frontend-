@@ -16,6 +16,8 @@ document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`
 document.getElementById('add-staff-btn').innerHTML = `${SVG_ICONS.plus} Add Staff`;
 document.getElementById('staff-modal-close').innerHTML = SVG_ICONS.x;
 
+initActiveNavScroll();
+
 const searchWrap = document.querySelector('.admin-toolbar .search-input-wrap');
 searchWrap.innerHTML = `${SVG_ICONS.search}<input id="staff-search-box" placeholder="Filter by name…" />`;
 const staffSearchBox = document.getElementById('staff-search-box');

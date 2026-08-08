@@ -16,6 +16,8 @@ document.getElementById('logout-link').innerHTML = `${SVG_ICONS.logout} Log Out`
 document.getElementById('add-supplier-btn').innerHTML = `${SVG_ICONS.plus} Add Supplier`;
 document.getElementById('supplier-modal-close').innerHTML = SVG_ICONS.x;
 
+initActiveNavScroll();
+
 const searchWrap = document.querySelector('.admin-toolbar .search-input-wrap');
 searchWrap.innerHTML = `${SVG_ICONS.search}<input id="sup-search-box" placeholder="Filter by name…" />`;
 const supSearchBox = document.getElementById('sup-search-box');
