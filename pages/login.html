@@ -33,7 +33,7 @@
         <div class="card login-card">
             <h2 style="color: var(--green-dark); margin-top:0;">Pharmacy Login</h2>
 
-            <div class="field" id="pharmacy-field">
+            <div class="field" id="pharmacy-field" style="display:none;">
                 <label for="pharmacy-id">Pharmacy ID</label>
                 <input id="pharmacy-id" placeholder="Paste pharmacy ID (first login only)" />
             </div>
@@ -104,6 +104,9 @@
             } else {
                 // Nothing cached yet — this is the very first login on this device.
                 // The dropdown can't have options yet, so fall back to a manual field.
+                // (pharmacy-field defaults to hidden in HTML now, so it must be
+                // explicitly shown here for the genuinely-first-time case.)
+                document.getElementById('pharmacy-field').style.display = 'block';
                 select.style.display = 'none';
                 document.getElementById('manual-userid-field').style.display = 'block';
             }
@@ -211,18 +214,28 @@
         }
 
         (async function init() {
-            await requestPersistentStorage();
-            await refreshStaffListSilently();
+            // Fast, local-only check first — this is what decides which fields
+            // to show, so it must run (and paint) before anything network-bound
+            // gets a chance to make the page feel like it's lagging.
             await loadCachedUsers();
-            const online = await isServerReachable();
-            document.getElementById('status-line').textContent = online
-                ? 'Online — you can log in with server or cached credentials'
-                : 'Offline — using cached credentials on this device';
             renderDots();
 
-            // Existing session? Skip straight to the right screen.
+            // Existing session? Skip straight to the right screen — checked
+            // early too, so a returning logged-in user never even sees the
+            // login form flash before being redirected away from it.
             const session = await getSession();
-            if (session) redirectByRole(session.role);
+            if (session) { redirectByRole(session.role); return; }
+
+            // Everything below is network-bound. It's allowed to take its time
+            // in the background — the form is already fully usable at this
+            // point, so none of this should block the screen from being correct.
+            requestPersistentStorage();
+            refreshStaffListSilently().then(loadCachedUsers); // pick up any newly-added staff once the refresh lands
+            isServerReachable().then((online) => {
+                document.getElementById('status-line').textContent = online
+                    ? 'Online — you can log in with server or cached credentials'
+                    : 'Offline — using cached credentials on this device';
+            });
         })();
     </script>
 </body>
