@@ -67,6 +67,14 @@ async function clearSession() {
   await db.meta.delete('session');
 }
 
+async function getSyncToken(user_id) {
+  return getMeta(`sync_token:${user_id}`, null);
+}
+
+async function setSyncToken(user_id, token) {
+  await setMeta(`sync_token:${user_id}`, token);
+}
+
 // ---------------- Catalog helpers ----------------
 
 async function replaceCatalog({ medicines, batches, users }) {
@@ -192,19 +200,19 @@ async function pushPendingShifts() {
   const pendingStarts = await db.shifts.where('start_synced').equals(0).toArray();
 
   for (const row of pendingStarts) {
+    const syncToken = await getSyncToken(row.cashier_id);
+    if (!syncToken) continue; // same reasoning as pushPendingSales — waits for that cashier's own online login
+
     try {
       const result = await apiRequest('/shifts/start', {
         method: 'POST',
+        tokenOverride: syncToken,
         body: { opening_cash: row.opening_cash },
       });
-      // Backend note: /shifts/start currently sets opened_at = now() server-side.
-      // For a shift that actually opened hours/days ago offline, this means the
-      // server's opened_at won't match reality. If accurate backdating matters,
-      // authController.startShift needs to accept an optional opened_at override.
       await reassignShiftId(row.shift_id, result.shift_id);
     } catch (err) {
       console.warn('Sync: failed to push shift start', row.shift_id, err.message);
-      continue; // don't attempt the end-push below with a still-local shift_id
+      continue;
     }
   }
 
@@ -214,9 +222,13 @@ async function pushPendingShifts() {
   );
 
   for (const row of pendingEnds) {
+    const syncToken = await getSyncToken(row.cashier_id);
+    if (!syncToken) continue;
+
     try {
       const result = await apiRequest('/shifts/end', {
         method: 'POST',
+        tokenOverride: syncToken,
         body: {
           shift_id: row.shift_id,
           counted_cash: row.counted_cash,

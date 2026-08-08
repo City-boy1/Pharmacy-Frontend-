@@ -46,12 +46,24 @@ async function pushPendingSales() {
   const pending = await db.sales.where('is_synced').equals(0).toArray();
 
   for (const sale of pending) {
+    if (sale.sync_auth_expired) continue;
+
+    const syncToken = await getSyncToken(sale.cashier_id);
+    if (!syncToken) {
+      // This cashier has never completed an online login on this device, so
+      // there's no sync token to authenticate with yet. Leave pending — it
+      // will succeed automatically once they do log in online here (or on
+      // any device, once cross-device retry is added later).
+      continue;
+    }
+
     try {
       const items = await db.sale_items.where('client_transaction_id').equals(sale.client_transaction_id).toArray();
       const cart = items.map((i) => ({ medicine_id: i.medicine_id, quantity: i.quantity }));
 
       const result = await apiRequest('/sales/checkout', {
         method: 'POST',
+        tokenOverride: syncToken,
         body: {
           client_transaction_id: sale.client_transaction_id,
           device_id: sale.device_id,
@@ -70,8 +82,15 @@ async function pushPendingSales() {
         oversell_flag: !!result.oversell_flag,
       });
     } catch (err) {
-      // Leave it pending; will retry next cycle. Log for visibility.
-      console.warn('Sync: failed to push sale', sale.client_transaction_id, err.message);
+      if (err.status === 401 || err.status === 403) {
+        // Sync token itself expired (>90 days queued) or was rejected.
+        // Stop retrying blindly; flag for a human/fresh login to resolve.
+        // cashier_id remains correctly recorded locally either way.
+        await db.sales.update(sale.client_transaction_id, { sync_auth_expired: 1 });
+        console.warn('Sync: sale', sale.client_transaction_id, 'needs manual resync (expired/invalid sync token)');
+      } else {
+        console.warn('Sync: failed to push sale', sale.client_transaction_id, err.message);
+      }
     }
   }
 }

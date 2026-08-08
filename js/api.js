@@ -24,11 +24,12 @@ const apiBaseUrlReady = (async () => {
     }
   }
 })();
-async function apiRequest(path, { method = 'GET', body, isFormData = false } = {}) {
+async function apiRequest(path, { method = 'GET', body, isFormData = false, tokenOverride } = {}) {
   await apiBaseUrlReady;
   const session = await getSession();
+  const token = tokenOverride || (session && session.token);
   const headers = {};
-  if (session && session.token) headers['Authorization'] = `Bearer ${session.token}`;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (!isFormData) headers['Content-Type'] = 'application/json';
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -45,9 +46,11 @@ async function apiRequest(path, { method = 'GET', body, isFormData = false } = {
     const message = (data && data.error) || `Request failed (${response.status})`;
     const err = new Error(message);
     err.status = response.status;
-    // A 401 from the server (not from being offline) means the token is invalid/expired.
-    // Force a fresh login rather than letting the app run in a broken half-authenticated state.
-    if (response.status === 401 && session && !session.offline_login) {
+    // A 401 means the token used for THIS request is invalid/expired. Only force
+    // a logout when it was the device's own active session token that failed —
+    // a background sync using an older queued sale's own token snapshot must
+    // never log out whoever is actually using the device right now.
+    if (response.status === 401 && !tokenOverride && session && !session.offline_login) {
       await clearSession();
       window.location.href = 'login.html';
     }
