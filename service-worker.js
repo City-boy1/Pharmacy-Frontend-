@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pharmacy-app-shell-v3';
+const CACHE_NAME = 'pharmacy-app-shell-v5';
 // Only the static shell — NOT api calls or data. Your app already has its own
 // offline data layer (db.js / sync.js), this cache is just so the app itself
 // (html/css/js/icons) can load instantly and even open with no connection.
@@ -61,8 +61,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else (CSS/JS/icons): cache-first, since these only change on
-  // deploy and CACHE_NAME is bumped then.
+  // JavaScript: network-first. JS controls app logic (including the IndexedDB
+  // schema in db.js) — serving a stale cached copy over a fresh one isn't just
+  // "old content," it can crash the page outright (version mismatch against
+  // an already-upgraded local database). Slightly slower on a slow connection
+  // is a much safer failure mode than that.
+  if (request.url.endsWith('.js')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // CSS/icons/everything else: cache-first, since these only change on
+  // deploy and CACHE_NAME is bumped then, and staleness here is harmless
+  // (a slightly outdated color or icon, never a crash).
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

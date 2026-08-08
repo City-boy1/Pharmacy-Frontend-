@@ -100,9 +100,11 @@ function renderSearchResults(results, onSelect, query) {
     const row = document.createElement('div');
     row.className = 'search-result-item' + (outOfStock ? ' out-of-stock' : '');
 
+    const isGeneralGoods = item.product_type === 'general_goods';
+
     const icon = document.createElement('div');
     icon.className = 'sr-icon';
-    icon.innerHTML = SVG_ICONS.pill; // static, trusted icon set — not user data
+    icon.innerHTML = isGeneralGoods ? SVG_ICONS.basket : SVG_ICONS.pill; // static, trusted icon set — not user data
 
     const info = document.createElement('div');
     info.className = 'sr-info';
@@ -112,7 +114,8 @@ function renderSearchResults(results, onSelect, query) {
     const nameSpan = document.createElement('span');
     nameSpan.textContent = item.brand_name;
     nameRow.appendChild(nameSpan);
-    if (item.rx_flag) {
+    // Rx badge only ever applies to medicine — general goods can never carry it.
+    if (!isGeneralGoods && item.rx_flag) {
       const rxBadge = document.createElement('span');
       rxBadge.className = 'badge badge-yellow';
       rxBadge.title = 'Prescription required';
@@ -122,9 +125,14 @@ function renderSearchResults(results, onSelect, query) {
 
     const genericLine = document.createElement('div');
     genericLine.className = 'sr-generic';
-    genericLine.textContent = item.generic_name || 'No generic name on file';
-
-    info.append(nameRow, genericLine);
+    // General goods don't have a "generic name" concept — skip the confusing
+    // "No generic name on file" line for them entirely.
+    if (!isGeneralGoods) {
+      genericLine.textContent = item.generic_name || 'No generic name on file';
+      info.append(nameRow, genericLine);
+    } else {
+      info.append(nameRow);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'sr-meta';

@@ -49,12 +49,43 @@ function buildLogRow(log) {
   detailsTd.style.color = 'var(--text-muted)';
   detailsTd.style.maxWidth = '360px';
   detailsTd.style.overflowWrap = 'break-word';
-  // details is JSONB — stringify for display, never innerHTML (it can
-  // contain admin-entered strings like brand_name from MEDICINE_CREATED).
-  detailsTd.textContent = log.details ? JSON.stringify(log.details) : '—';
+  detailsTd.textContent = formatDetails(log.details);
 
   tr.append(timeTd, userTd, actionTd, detailsTd);
   return tr;
+}
+
+// Turns the raw details JSONB into a readable "key: value, key: value" line
+// instead of a raw JSON dump — still built via textContent (details can
+// contain admin-entered strings like brand_name), just formatted for a
+// pharmacy owner scanning the log quickly rather than reading JSON syntax.
+const DETAIL_LABELS = {
+  medicine_id: 'Medicine ID',
+  brand_name: 'Product',
+  product_type: 'Type',
+  batch_id: 'Batch ID',
+  supplier_id: 'Supplier ID',
+  new_user_id: 'New Staff ID',
+  deactivated_user_id: 'Staff ID',
+  reactivated_user_id: 'Staff ID',
+};
+const PRODUCT_TYPE_LABELS = {
+  medicine: 'Medicine',
+  general_goods: 'General Goods',
+};
+
+function formatDetails(details) {
+  if (!details || typeof details !== 'object') return '—';
+  const entries = Object.entries(details);
+  if (entries.length === 0) return '—';
+
+  return entries
+    .map(([key, value]) => {
+      const label = DETAIL_LABELS[key] || key;
+      const displayValue = key === 'product_type' ? (PRODUCT_TYPE_LABELS[value] || value) : value;
+      return `${label}: ${displayValue}`;
+    })
+    .join(' · ');
 }
 
 function renderAuditTable(list) {

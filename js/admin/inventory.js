@@ -8,7 +8,9 @@ let session = null;
 let allMedicines = [];
 let editingMedicineId = null;   // null = Add Medicine mode, set = Edit Medicine mode
 let batchTargetMedicineId = null; // which medicine a batch modal action applies to
-let editingBatchId = null;      // null = Add Batch mode, set = Edit Batch mode
+let batchTargetMedicineType = null; // that medicine's product_type, drives whether expiry is required
+let editingBatchId = null; 
+let currentMedicineType = 'medicine'; // tracks the modal's selected type toggle     // null = Add Batch mode, set = Edit Batch mode
 
 // ---------- Static icon-bearing chrome ----------
 document.getElementById('brand-icon-fallback').innerHTML = SVG_ICONS.pill;
@@ -28,6 +30,8 @@ document.getElementById('batch-modal-close').innerHTML = SVG_ICONS.x;
 document.getElementById('batch-list-modal-close').innerHTML = SVG_ICONS.x;
 document.getElementById('import-modal-close').innerHTML = SVG_ICONS.x;
 document.getElementById('med-barcode-scan-btn').innerHTML = SVG_ICONS.barcode;
+document.getElementById('med-type-medicine').innerHTML = `${SVG_ICONS.pill} Medicine`;
+document.getElementById('med-type-goods').innerHTML = `${SVG_ICONS.basket} General Goods`;
 
 initActiveNavScroll();
 
@@ -55,7 +59,14 @@ function buildRow(med) {
   nameSpan.style.fontWeight = '600';
   nameSpan.textContent = med.brand_name;
   nameWrap.appendChild(nameSpan);
-  if (med.rx_flag) {
+  if (med.product_type === 'general_goods') {
+    const goodsBadge = document.createElement('span');
+    goodsBadge.className = 'badge';
+    goodsBadge.style.background = 'var(--green-pale)';
+    goodsBadge.style.color = 'var(--green-dark)';
+    goodsBadge.textContent = 'Goods';
+    nameWrap.appendChild(goodsBadge);
+  } else if (med.rx_flag) {
     const rx = document.createElement('span');
     rx.className = 'rx-badge';
     rx.textContent = 'Rx';
@@ -145,10 +156,31 @@ async function loadMedicines() {
   const includeArchived = document.getElementById('show-archived-toggle').checked;
   try {
     allMedicines = await apiRequest(`/admin/medicines${includeArchived ? '?include_archived=true' : ''}`);
-    renderTable(allMedicines);
+    applyFilters();
   } catch (err) {
     showToast(err.message || 'Could not load medicines', 'error');
   }
+}
+
+// Combines the text search and the type filter into one pass, so changing
+// either one always reflects the current state of both — not just whichever
+// control was touched last.
+function applyFilters() {
+  const q = invSearchBox.value.trim().toLowerCase();
+  const typeFilter = document.getElementById('type-filter-select').value;
+
+  let filtered = allMedicines;
+  if (typeFilter !== 'all') {
+    filtered = filtered.filter((m) => (m.product_type || 'medicine') === typeFilter);
+  }
+  if (q) {
+    filtered = filtered.filter((m) =>
+      (m.brand_name || '').toLowerCase().includes(q) ||
+      (m.generic_name || '').toLowerCase().includes(q) ||
+      (m.barcode || '').toLowerCase().includes(q)
+    );
+  }
+  renderTable(filtered);
 }
 
 async function confirmArchive(med) {
@@ -174,27 +206,31 @@ async function restoreMedicineHandler(med) {
 
 document.getElementById('show-archived-toggle').addEventListener('change', loadMedicines);
 
-invSearchBox.addEventListener('input', () => {
-  const q = invSearchBox.value.trim().toLowerCase();
-  if (!q) { renderTable(allMedicines); return; }
-  const filtered = allMedicines.filter((m) =>
-    (m.brand_name || '').toLowerCase().includes(q) ||
-    (m.generic_name || '').toLowerCase().includes(q) ||
-    (m.barcode || '').toLowerCase().includes(q)
-  );
-  renderTable(filtered);
-});
+invSearchBox.addEventListener('input', applyFilters);
+document.getElementById('type-filter-select').addEventListener('change', applyFilters);
+
+function setMedicineType(type) {
+  currentMedicineType = type;
+  document.getElementById('med-type-medicine').classList.toggle('active', type === 'medicine');
+  document.getElementById('med-type-goods').classList.toggle('active', type === 'general_goods');
+  document.getElementById('med-medicine-only-fields').style.display = type === 'medicine' ? 'block' : 'none';
+  document.getElementById('med-rx-field').style.display = type === 'medicine' ? 'flex' : 'none';
+  document.getElementById('med-brand-label').textContent = type === 'medicine' ? 'Brand Name *' : 'Product Name *';
+}
+document.getElementById('med-type-medicine').addEventListener('click', () => setMedicineType('medicine'));
+document.getElementById('med-type-goods').addEventListener('click', () => setMedicineType('general_goods'));
 
 // ==================== Add / Edit Medicine modal ====================
 
 function openMedicineModal(existingMed = null) {
   editingMedicineId = existingMed ? existingMed.medicine_id : null;
-  document.querySelector('#medicine-modal h3').textContent = existingMed ? 'Edit Medicine' : 'Add Medicine';
+  document.querySelector('#medicine-modal h3').textContent = existingMed ? 'Edit Product' : 'Add Product';
   document.getElementById('med-brand').value = existingMed?.brand_name || '';
   document.getElementById('med-generic').value = existingMed?.generic_name || '';
   document.getElementById('med-barcode').value = existingMed?.barcode || '';
   document.getElementById('med-reorder').value = existingMed?.min_reorder_level || '';
   document.getElementById('med-rx').checked = !!existingMed?.rx_flag;
+  setMedicineType(existingMed?.product_type === 'general_goods' ? 'general_goods' : 'medicine');
   document.getElementById('medicine-save-btn').textContent = existingMed ? 'Save Changes' : 'Save Medicine';
   document.getElementById('medicine-modal').style.display = 'flex';
 }
@@ -214,14 +250,17 @@ attachBarcodeScanner(document.getElementById('med-barcode'), (code) => {
 
 document.getElementById('medicine-save-btn').addEventListener('click', async () => {
   const brand_name = document.getElementById('med-brand').value.trim();
-  if (!brand_name) { showToast('Brand name is required', 'error'); return; }
+  if (!brand_name) { showToast(currentMedicineType === 'medicine' ? 'Brand name is required' : 'Product name is required', 'error'); return; }
 
   const payload = {
     brand_name,
-    generic_name: document.getElementById('med-generic').value.trim() || null,
+    product_type: currentMedicineType,
+    // Generic name and Rx only make sense for medicine — force-clear them for
+    // general goods so a stale value from a prior edit can't linger unseen.
+    generic_name: currentMedicineType === 'medicine' ? (document.getElementById('med-generic').value.trim() || null) : null,
     barcode: document.getElementById('med-barcode').value.trim() || null,
     min_reorder_level: Number(document.getElementById('med-reorder').value) || 0,
-    rx_flag: document.getElementById('med-rx').checked,
+    rx_flag: currentMedicineType === 'medicine' ? document.getElementById('med-rx').checked : false,
   };
 
   try {
@@ -243,11 +282,13 @@ document.getElementById('medicine-save-btn').addEventListener('click', async () 
 
 function openBatchModal(med, existingBatch = null) {
   batchTargetMedicineId = med.medicine_id;
+  batchTargetMedicineType = med.product_type === 'general_goods' ? 'general_goods' : 'medicine';
+  document.getElementById('batch-expiry-label').textContent = batchTargetMedicineType === 'medicine' ? 'Expiry Date *' : 'Expiry Date (optional)';
   editingBatchId = existingBatch ? existingBatch.batch_id : null;
   document.getElementById('batch-modal-title').textContent = existingBatch ? 'Edit Batch' : 'Add Batch';
   document.getElementById('batch-medicine-label').textContent = `For: ${med.brand_name}`;
   document.getElementById('batch-number').value = existingBatch?.batch_number || '';
-  document.getElementById('batch-expiry').value = existingBatch ? existingBatch.expiry_date.slice(0, 10) : '';
+  document.getElementById('batch-expiry').value = existingBatch?.expiry_date ? existingBatch.expiry_date.slice(0, 10) : '';
   document.getElementById('batch-qty').value = existingBatch?.quantity_in_stock ?? '';
   document.getElementById('batch-cost').value = existingBatch?.cost_price ?? '';
   document.getElementById('batch-unit-price').value = existingBatch?.unit_price ?? '';
@@ -263,11 +304,16 @@ document.getElementById('batch-modal-close').addEventListener('click', closeBatc
 document.getElementById('batch-cancel-btn').addEventListener('click', closeBatchModal);
 
 document.getElementById('batch-save-btn').addEventListener('click', async () => {
-  const expiry_date = document.getElementById('batch-expiry').value;
+  const expiry_date = document.getElementById('batch-expiry').value || null;
   const quantity_in_stock = Number(document.getElementById('batch-qty').value);
   const unit_price = Number(document.getElementById('batch-unit-price').value);
 
-  if (!expiry_date) { showToast('Expiry date is required', 'error'); return; }
+  // Expiry is only mandatory for medicine — general goods may legitimately
+  // have none (e.g. cornflakes, canned goods with no tracked expiry).
+  if (!expiry_date && batchTargetMedicineType === 'medicine') {
+    showToast('Expiry date is required for medicine', 'error');
+    return;
+  }
   if (quantity_in_stock < 0) { showToast('Enter a valid quantity', 'error'); return; }
   if (!unit_price || unit_price <= 0) { showToast('Enter a valid selling price', 'error'); return; }
 

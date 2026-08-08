@@ -79,6 +79,12 @@
 
             <div class="admin-toolbar">
                 <div class="search-input-wrap"></div>
+                <select id="type-filter-select"
+                    style="width:auto; padding:8px 10px; border:1px solid var(--cream-border); border-radius:var(--radius); background:white; color:var(--green-dark);">
+                    <option value="all">All Products</option>
+                    <option value="medicine">Medicine Only</option>
+                    <option value="general_goods">General Goods Only</option>
+                </select>
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; white-space:nowrap;">
                     <input type="checkbox" id="show-archived-toggle" style="width:auto;" />
                     Show archived
@@ -123,12 +129,22 @@
                 <button class="modal-close" id="medicine-modal-close"></button>
             </div>
             <div class="field">
-                <label for="med-brand">Brand Name *</label>
-                <input id="med-brand" placeholder="e.g. Panadol" />
+                <label>Product Type</label>
+                <div class="payment-tabs" id="med-type-tabs" style="grid-template-columns: repeat(2, 1fr);">
+                    <button type="button" class="payment-tab active" data-type="medicine"
+                        id="med-type-medicine"></button>
+                    <button type="button" class="payment-tab" data-type="general_goods" id="med-type-goods"></button>
+                </div>
             </div>
             <div class="field">
-                <label for="med-generic">Generic Name</label>
-                <input id="med-generic" placeholder="e.g. Paracetamol" />
+                <label for="med-brand" id="med-brand-label">Brand Name *</label>
+                <input id="med-brand" placeholder="e.g. Panadol" />
+            </div>
+            <div id="med-medicine-only-fields">
+                <div class="field">
+                    <label for="med-generic">Generic Name</label>
+                    <input id="med-generic" placeholder="e.g. Paracetamol" />
+                </div>
             </div>
             <div class="field">
                 <label for="med-barcode">Barcode</label>
@@ -141,7 +157,7 @@
                 <label for="med-reorder">Minimum Reorder Level</label>
                 <input id="med-reorder" type="number" min="0" placeholder="0" />
             </div>
-            <div class="field" style="display:flex; align-items:center; gap:8px; flex-direction:row;">
+            <div class="field" id="med-rx-field" style="display:flex; align-items:center; gap:8px; flex-direction:row;">
                 <input id="med-rx" type="checkbox" style="width:auto;" />
                 <label for="med-rx" style="margin:0;">Prescription (Rx) only</label>
             </div>
@@ -165,7 +181,7 @@
                 <input id="batch-number" placeholder="e.g. B20260714" />
             </div>
             <div class="field">
-                <label for="batch-expiry">Expiry Date *</label>
+                <label for="batch-expiry" id="batch-expiry-label">Expiry Date *</label>
                 <input id="batch-expiry" type="date" />
             </div>
             <div class="field">

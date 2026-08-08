@@ -5,11 +5,20 @@
 // Given a medicine_id and quantity, picks batches from the LOCAL cache,
 // soonest expiry first, and returns the lines to record + updates local stock.
 async function localFefoDeduct(medicine_id, quantity_needed) {
-  const batches = await db.batches
+  const unsorted = await db.batches
     .where('medicine_id')
     .equals(medicine_id)
     .and((b) => b.quantity_in_stock > 0)
-    .sortBy('expiry_date');
+    .toArray();
+
+  // Mirrors the server's `ORDER BY expiry_date ASC NULLS LAST` exactly —
+  // dated batches always deduct before any no-expiry batch.
+  const batches = unsorted.sort((a, b) => {
+    if (!a.expiry_date && !b.expiry_date) return 0;
+    if (!a.expiry_date) return 1;
+    if (!b.expiry_date) return -1;
+    return new Date(a.expiry_date) - new Date(b.expiry_date);
+  });
 
   const lines = [];
   let remaining = quantity_needed;

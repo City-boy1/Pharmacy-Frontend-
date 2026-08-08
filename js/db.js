@@ -29,6 +29,19 @@ db.version(2).stores({
   shifts: '++local_id, shift_id, start_synced, end_synced',
 });
 
+// v3: adds product_type so the offline catalog can distinguish medicine vs
+// general goods (e.g. for icon/badge rendering and any future type filters)
+// without needing a network round-trip.
+db.version(3).stores({
+  medicines: 'medicine_id, brand_name, generic_name, barcode, product_type',
+  batches: 'batch_id, medicine_id, expiry_date',
+  users: 'user_id, role',
+  sales: 'client_transaction_id, is_synced, timestamp, shift_id',
+  sale_items: '++local_id, client_transaction_id',
+  meta: 'key',
+  shifts: '++local_id, shift_id, start_synced, end_synced',
+});
+
 // ---------------- Meta helpers ----------------
 
 async function getMeta(key, fallback = null) {
