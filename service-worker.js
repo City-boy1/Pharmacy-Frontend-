@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pharmacy-app-shell-v5';
+const CACHE_NAME = 'pharmacy-app-shell-v6';
 // Only the static shell — NOT api calls or data. Your app already has its own
 // offline data layer (db.js / sync.js), this cache is just so the app itself
 // (html/css/js/icons) can load instantly and even open with no connection.
@@ -8,6 +8,8 @@ const APP_SHELL = [
   '/css/layout.css',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  'https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js',
 ];
 
 self.addEventListener('install', (event) => {
