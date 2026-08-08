@@ -287,6 +287,7 @@ function openBatchModal(med, existingBatch = null) {
   editingBatchId = existingBatch ? existingBatch.batch_id : null;
   document.getElementById('batch-modal-title').textContent = existingBatch ? 'Edit Batch' : 'Add Batch';
   document.getElementById('batch-medicine-label').textContent = `For: ${med.brand_name}`;
+  document.getElementById('batch-supplier').value = existingBatch?.supplier_id || '';
   document.getElementById('batch-number').value = existingBatch?.batch_number || '';
   document.getElementById('batch-expiry').value = existingBatch?.expiry_date ? existingBatch.expiry_date.slice(0, 10) : '';
   document.getElementById('batch-qty').value = existingBatch?.quantity_in_stock ?? '';
@@ -318,6 +319,7 @@ document.getElementById('batch-save-btn').addEventListener('click', async () => 
   if (!unit_price || unit_price <= 0) { showToast('Enter a valid selling price', 'error'); return; }
 
   const payload = {
+    supplier_id: document.getElementById('batch-supplier').value || null,
     batch_number: document.getElementById('batch-number').value.trim() || null,
     expiry_date,
     quantity_in_stock,
@@ -368,8 +370,9 @@ function buildBatchListRow(b, med) {
   row.className = 'admin-alert-row';
 
   const info = document.createElement('span');
-  const expiry = new Date(b.expiry_date).toLocaleDateString();
-  info.textContent = `${b.batch_number || 'No batch #'} — Qty: ${b.quantity_in_stock} — Expires: ${expiry} — ₵${Number(b.unit_price).toFixed(2)}/unit`;
+  const expiry = b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : 'No expiry';
+  const supplierPart = b.supplier_name ? ` — Supplier: ${b.supplier_name}` : '';
+  info.textContent = `${b.batch_number || 'No batch #'} — Qty: ${b.quantity_in_stock} — Expires: ${expiry} — ₵${Number(b.unit_price).toFixed(2)}/unit${supplierPart}`;
 
   const editBtn = document.createElement('button');
   editBtn.className = 'btn-secondary';
@@ -472,6 +475,22 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 
 document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
+async function loadSupplierOptions() {
+  try {
+    const suppliers = await apiRequest('/admin/suppliers');
+    const select = document.getElementById('batch-supplier');
+    select.innerHTML = '<option value="">— Not specified —</option>';
+    for (const s of suppliers) {
+      const opt = document.createElement('option');
+      opt.value = s.supplier_id;
+      opt.textContent = s.name;
+      select.appendChild(opt);
+    }
+  } catch (err) {
+    console.warn('Could not load suppliers for batch form:', err.message);
+  }
+}
+
 (async function init() {
   session = await requireSession();
   if (!session) return;
@@ -479,6 +498,7 @@ document.getElementById('logout-link').addEventListener('click', (e) => { e.prev
   document.getElementById('admin-name').textContent = session.name;
 
   await loadMedicines();
+  await loadSupplierOptions();
 
   const branding = await loadPharmacyBranding();
   applyBrandingToSidebar(branding);
