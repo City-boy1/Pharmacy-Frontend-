@@ -16,9 +16,11 @@
         (function () {
             var primary = localStorage.getItem('pharmacy_theme_color');
             var dark = localStorage.getItem('pharmacy_theme_dark');
+            var light = localStorage.getItem('pharmacy_theme_light');
             var pale = localStorage.getItem('pharmacy_theme_pale');
             if (primary) document.documentElement.style.setProperty('--green-primary', primary);
             if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (light) document.documentElement.style.setProperty('--green-light', light);
             if (pale) document.documentElement.style.setProperty('--green-pale', pale);
         })();
     </script>

@@ -16,9 +16,11 @@
         (function () {
             var primary = localStorage.getItem('pharmacy_theme_color');
             var dark = localStorage.getItem('pharmacy_theme_dark');
+            var light = localStorage.getItem('pharmacy_theme_light');
             var pale = localStorage.getItem('pharmacy_theme_pale');
             if (primary) document.documentElement.style.setProperty('--green-primary', primary);
             if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (light) document.documentElement.style.setProperty('--green-light', light);
             if (pale) document.documentElement.style.setProperty('--green-pale', pale);
         })();
     </script>
@@ -154,15 +156,47 @@
         const searchBox = document.getElementById('search-box');
 
         // ---------- Payment method tabs ----------
-        const PAYMENT_METHODS = [
+        const ALL_PAYMENT_METHODS = [
             { key: 'cash', label: 'Cash', icon: SVG_ICONS.cash },
             { key: 'card', label: 'Card', icon: SVG_ICONS.card },
             { key: 'mobile_money', label: 'Mobile Money', icon: SVG_ICONS.mobile },
         ];
+        let momoEnabled = false;
+        let momoProviders = [];
+
+        // Reads the pharmacy's mobile money config from the cached profile
+        // (already stored offline by loadPharmacyBranding -> setMeta('pharmacy_profile', ...))
+        // so this works correctly even after weeks with no connection.
+        function applyMomoConfig(profile) {
+            momoEnabled = !!(profile && profile.mobile_money_enabled);
+            momoProviders = (profile && profile.mobile_money_providers) || [];
+
+            const select = document.getElementById('momo-provider');
+            select.innerHTML = '';
+            for (const p of momoProviders) {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                select.appendChild(opt);
+            }
+
+            // If mobile money got disabled (or the cashier's current pick is no
+            // longer offered) while this device was on the payment tab, fall back
+            // to cash rather than silently keeping an invalid selection.
+            if (paymentMethod === 'mobile_money' && (!momoEnabled || momoProviders.length === 0)) {
+                paymentMethod = 'cash';
+            }
+            renderPaymentTabs();
+            onPaymentMethodChange();
+        }
+
         function renderPaymentTabs() {
             const wrap = document.getElementById('payment-tabs');
             wrap.innerHTML = '';
-            for (const m of PAYMENT_METHODS) {
+            const visibleMethods = ALL_PAYMENT_METHODS.filter(
+                (m) => m.key !== 'mobile_money' || (momoEnabled && momoProviders.length > 0)
+            );
+            for (const m of visibleMethods) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'payment-tab' + (paymentMethod === m.key ? ' active' : '');
@@ -298,14 +332,13 @@
                 return;
             }
             renderCart();
-            renderPaymentTabs();
-            onPaymentMethodChange();
+            const branding = await loadPharmacyBranding();
+            applyBrandingToSidebar(branding);
+            applyMomoConfig(branding); // renders payment tabs + momo dropdown, cache-safe offline
             startSyncLoop();
             onSyncStatusChange(refreshSyncIndicator);
             refreshSyncIndicator();
             setInterval(refreshSyncIndicator, 5000);
-            const branding = await loadPharmacyBranding();
-            applyBrandingToSidebar(branding);
         })();
     </script>
 </body>

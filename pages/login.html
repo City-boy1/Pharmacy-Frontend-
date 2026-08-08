@@ -130,6 +130,7 @@
                     await setSession({ token: result.token, ...result.user });
                     await setMeta('pharmacy_id', result.user.pharmacy_id);
                     await setMeta('last_known_token', result.token);
+                    await requestPersistentStorage();
                     try { await pullCatalog(); } catch (e) { console.warn('Initial catalog pull failed:', e.message); }
                     showToast(`Welcome, ${result.user.name}`);
                     redirectByRole(result.user.role);
@@ -210,6 +211,7 @@
         }
 
         (async function init() {
+            await requestPersistentStorage();
             await refreshStaffListSilently();
             await loadCachedUsers();
             const online = await isServerReachable();

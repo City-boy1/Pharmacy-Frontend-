@@ -160,12 +160,15 @@ function applyBrandingToSidebar(profile) {
 // pharmacy only has to pick ONE color, not maintain a whole palette.
 function applyThemeColor(hex) {
   const dark = shadeColor(hex, -20);
+  const light = shadeColor(hex, 30);
   const pale = shadeColor(hex, 85);
   document.documentElement.style.setProperty('--green-primary', hex);
   document.documentElement.style.setProperty('--green-dark', dark);
+  document.documentElement.style.setProperty('--green-light', light);
   document.documentElement.style.setProperty('--green-pale', pale);
   localStorage.setItem('pharmacy_theme_color', hex);
   localStorage.setItem('pharmacy_theme_dark', dark);
+  localStorage.setItem('pharmacy_theme_light', light);
   localStorage.setItem('pharmacy_theme_pale', pale);
 }
 

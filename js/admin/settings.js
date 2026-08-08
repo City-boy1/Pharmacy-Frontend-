@@ -70,11 +70,15 @@ document.getElementById('branding-save-btn').addEventListener('click', async () 
   if (pendingLogoDataUrl) payload.logo_url = pendingLogoDataUrl;
 
   try {
-    await apiRequest('/admin/pharmacy/profile', { method: 'PUT', body: payload });
+    const saved = await apiRequest('/admin/pharmacy/profile', { method: 'PUT', body: payload });
     showToast('Branding saved');
     pendingLogoDataUrl = null;
-    const branding = await loadPharmacyBranding();
+
+    // Apply from what we already have instead of re-fetching — no second
+    // round-trip before the sidebar/theme visibly updates.
+    const branding = { ...payload, ...(saved || {}) };
     applyBrandingToSidebar(branding);
+    await setMeta('pharmacy_profile', branding); // keep the offline cache in sync too
   } catch (err) {
     showToast(err.message || 'Could not save branding', 'error');
   }

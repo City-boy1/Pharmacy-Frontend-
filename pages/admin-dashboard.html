@@ -16,9 +16,11 @@
         (function () {
             var primary = localStorage.getItem('pharmacy_theme_color');
             var dark = localStorage.getItem('pharmacy_theme_dark');
+            var light = localStorage.getItem('pharmacy_theme_light');
             var pale = localStorage.getItem('pharmacy_theme_pale');
             if (primary) document.documentElement.style.setProperty('--green-primary', primary);
             if (dark) document.documentElement.style.setProperty('--green-dark', dark);
+            if (light) document.documentElement.style.setProperty('--green-light', light);
             if (pale) document.documentElement.style.setProperty('--green-pale', pale);
         })();
     </script>
@@ -186,6 +188,9 @@
             if (session.role !== 'admin') { window.location.href = 'pos.html'; return; }
             document.getElementById('admin-name').textContent = session.name;
 
+            const branding = await loadPharmacyBranding();
+            applyBrandingToSidebar(branding);
+
             try {
                 const [alerts, staff, suppliers] = await Promise.all([
                     apiRequest('/admin/inventory/alerts'),
@@ -203,9 +208,6 @@
             } catch (err) {
                 showToast(err.message || 'Could not load dashboard data', 'error');
             }
-
-            const branding = await loadPharmacyBranding();
-            applyBrandingToSidebar(branding);
         })();
     </script>
 </body>
